@@ -1,4 +1,4 @@
-baseURL = "https://example.com"
+baseURL = "https://ipascale.netlify.app"
 title   = "Ignacio Pascale"
 languageCode = "en-us"
 theme = "hugo-theme-hello-friend-ng"
