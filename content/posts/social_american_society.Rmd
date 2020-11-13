@@ -1,0 +1,543 @@
+---
+categories:
+
+date: "2020-09-20"
+description: American Society's Social Behaviour in 2016
+draft: false
+keywords: ""
+slug: social_american_society
+title: How do Americans behave on Social Media?
+
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, 
+  warning = FALSE, 
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+options(digits = 3)
+
+# default figure size
+knitr::opts_chunk$set(
+  fig.width=6.75, 
+  fig.height=6.75,
+  fig.align = "center"
+)
+```
+
+
+```{r load-libraries, include=FALSE, echo=FALSE}
+library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
+library(mosaic)
+library(ggthemes)
+library(lubridate)
+library(here)
+library(skimr)
+library(janitor)
+library(httr)
+library(readxl)
+library(vroom)
+library(infer)
+library(ggrepel)
+library(knitr)
+library(ggpubr)
+library(scales)
+library(tidytext)
+```
+
+
+# General Social Survey (GSS)
+
+**How does the American Society relate to social media, technology and education?**
+
+The [General Social Survey (GSS)](http://www.gss.norc.org/) gathers data on American society in order to monitor and explain trends in attitudes, behaviours, and attributes. Many trends have been tracked for decades, so one can see the evolution of attitudes, etc in American Society.
+
+
+In this blog post, we analyze data from the **2016 GSS sample data**, using it to estimate values of *population parameters* of interest about US adults. The GSS sample data file has 2867 observations of 935 variables, but we are only interested in very few of these variables - therefore we will use a sample that contains only time spend in `email`, `snapchat`, `instagram`, `twitter`; their sex; and what level of education they have.
+
+Let's take a look at the data
+
+```{r, read_gss_data, cache=TRUE, echo=TRUE, include=FALSE}
+gss <- read_csv(here::here("datasets", "smallgss2016.csv"), 
+                na = c("", "Don't know",
+                       "No answer", "Not applicable"))
+
+head(gss, 10)
+```
+
+You will also notice that many responses should not be taken into consideration, like "No Answer", "Don't Know", "Not applicable", "Refused to Answer". These were classified as "`NA`"
+
+## Instagram and Snapchat, by sex
+
+Can we estimate the *population* proportion of Snapchat or Instagram users in 2016? Let's find out.
+
+### Data loading, cleaning and wrangling
+
+We will first proceed to clean this dataset a bit and do data wrangling. We will create a new variable that is *Yes* if the respondent reported using any of Snapchat (`snapchat`) or Instagram (`instagrm`), and *No* if not. We will leave the `NA` and drop them later on.
+
+```{r snap_insta, echo=TRUE}
+
+snap_insta <- gss %>%
+  
+  # Create new variable
+  mutate(snap_insta = case_when (
+    instagrm=="Yes" | snapchat=="Yes" ~ "Yes",
+    instagrm=="No" & snapchat=="No" ~ "No",
+    # Add NA as string
+    TRUE ~ "NA" )) 
+
+# Show results
+head(snap_insta,5)
+```
+
+### Calculating proportions
+We will calculate the proportion of Yes’s for `snap_insta` among those who answered the question, i.e. excluding NAs.
+
+```{r yes_prop, echo=TRUE}
+
+yes_prop <-snap_insta %>% 
+  # Filter out NA
+  filter(!snap_insta=="NA") %>% 
+  # Create proportion of yes
+  summarise(yes = sum(snap_insta=="Yes"), # Count those who said "Yes"
+            count = n()) %>%  # Count all records
+  # Calculate proportion (x/n)
+  mutate(yes_prop = yes/count)
+
+# Show results
+kable(yes_prop)
+```
+Our point estimate (proportion) of people with snapchat or instagram seems to be about 37.5%.
+
+### Confidence intervals
+
+We will first use the CI formula for proportions to construct 95% CIs for men and women who used either Snapchat or Instagram. To do this, we will need to group records by sex and calculate the corresponding summary statistics (proportion and standard error)
+
+```{r ci_formula_snap_insta, echo=TRUE}
+# Create new object "df" (short for data frame)
+df <-snap_insta %>% 
+  # Filter out NA
+  filter(!snap_insta=="NA") %>%
+  # Group by gender
+  group_by(sex) %>%
+  # Calculate summary statistics
+  summarise(yes = sum(snap_insta=="Yes"),
+            count = n()) %>%
+  # Calculate proportion and standard error of the proportion sample
+  mutate(yes_prop = yes/count,
+        se = sqrt(yes_prop*(1-yes_prop)/count))
+
+# Show results
+kable(df)
+
+```
+
+We see that the proportion of women who use snapchat or instagram seems to be of about 42%, whereas that of men is 39%. We wil now establish a confidence interval of 95% using the conventional formula. Since the distribution of the proportion is binomial, we can approach the sample with a normal distribution and calculate the proportion estimate to infer the population parameter of the proportion.
+
+```{r confidence_interval_df, echo=TRUE}
+# We have a proportion, yet we create a CI around the proportion. The proportion is of the sample.
+
+df_ci<-df %>%
+  group_by(sex) %>%
+  # Establish lower limit
+  summarise(lower= yes_prop - (1.96*se),
+            # Establish upper limit
+            upper= yes_prop + (1.96*se),
+            yes_prop=yes_prop,
+            se=se) %>%
+  select(sex, lower, yes_prop, upper, se)
+
+kable(df_ci)
+```
+
+As it seems, the women's confidence interval goes from 38% to 44%, with the estimate proportion around 42%. Men's interval goes from 28% to 35%, with the estimate proportion around 32%. We can appreciate this on the following plot.
+
+```{r ci_df_plot}
+
+# We will use ggerrorplot from the library ggpubr
+ggerrorplot(df_ci, 
+            x ="sex", 
+            y = "yes_prop", 
+            color = "sex",
+            desc_stat = "mean_ci", 
+            palette="uchicago", 
+            size=.9) +
+  
+  # Add bar of CI
+  geom_errorbar(aes(ymin = lower, 
+                    ymax = upper), width = .2, position=position_dodge(.9) ) +
+  
+  # Add labels
+  labs(title = "Do more women use instagram/snapchat than men?",
+       subtitle = "Figure 2.1",
+       y= "Estimate proportion of people who use instagram/snapchat",
+       x= "Gender",
+       caption = "Source: General Social Survey (GSS)") +
+  
+  # Remove legend
+  theme(legend.position = "none")
+
+
+```
+
+If our results could be generizable, then we could say that in proportion, more women use instragram/snapchat than men. There is a statistical significance in the difference between the proportions, as the confidence intervals do not overlap.
+
+## Twitter, by education level
+
+Can we estimate the *population* proportion of Twitter users by education level in 2016?. 
+
+### Data loading, cleaning and wrangling
+
+There are 5 education levels in variable `degree` which, in ascending order of years of education, are Lt high school, High School, Junior college, Bachelor, Graduate. 
+
+We will first turn `degree` from a character variable into a factor variable. We will convert this into a factor and establish the levels so the plot will take those in a certain order.
+
+```{r twitter_df, echo=TRUE}
+
+# Convert degree into a factor and establish levels
+twitter_df <- gss %>%
+  mutate(degree = factor(degree, c("Lt high school","High School","Junior college","Bachelor","Graduate")))
+
+# Show results
+
+kable(head(twitter_df, 5))
+```
+
+Now we will create a  new variable, `bachelor_graduate` that is *Yes* if the respondent has either a `Bachelor` or `Graduate` degree. As before, if the recorded value for either was NA, the value will also be NA. We will drop these for the analysis as well.
+
+```{r bachelor_graduate, echo=TRUE}
+twitter_df <- twitter_df %>% 
+  # Create bachelor_graduate
+  mutate(bachelor_graduate = case_when(
+    degree %in% c("Bachelor","Graduate") ~ "Yes",
+    is.na(degree) ~ "NA",
+    
+    #Else
+    TRUE ~ "No"))
+
+# Filter out NAs
+twitter_df <- twitter_df %>% filter(!bachelor_graduate=="NA")
+
+# Show Results
+kable(head(twitter_df, 10))
+
+```
+Our data set is now good to go.
+
+### Calculating proportions
+
+We will calculate the proportion of `bachelor_graduate` who do (Yes) and who don't (No) use twitter. 
+
+
+```{r prop_bach_grad, echo=TRUE}
+# Create new object
+prop_twitter_df <- twitter_df %>%
+   # filter by Yes in bachelor graduates
+  filter(bachelor_graduate=="Yes" & !twitter =="NA") %>%
+  # Group by Yes/No
+  group_by(twitter) %>%
+  # Count records
+  summarise(count=n()) %>%
+  # Create total count and proportion for each group
+  mutate(total = sum(count),
+         prop = count/total) %>%
+  # Show "Yes" first
+  arrange(desc(twitter))
+
+# Show results
+kable(head(prop_twitter_df, 10))
+```
+
+
+
+Using the CI formula for proportions, we will construct two 95% CIs for `bachelor_graduate` vs whether they use (Yes) and don't (No) use twitter. 
+
+
+```{r ci_formula}
+# Create confidence interval with formula
+
+prop_twitter_df<- prop_twitter_df %>%
+  # Create standard error, lower and upper
+  mutate(se = sqrt(prop*(1-prop)/total),
+         lower = prop - se*1.96,
+         upper = prop + se*1.96) %>%
+  # Select relevant variables
+  select(twitter, total, count, se, lower, prop, upper)
+
+# Show results
+kable(head(prop_twitter_df, 10))
+```
+
+According to our estimates, 76% of those who are educated up to either bachelor/masters degree do use twitter, whereas 24% are not. The confidence interval for those who are goes from 73% to 80%, and that of those who are not goes from 19% to 27%. As we can appreciate in the following plot, the intervals **DO NOT** overlap.
+
+```{r plot_intervals_twitter, echo=TRUE}
+
+# Use ggpubr for this 
+ggerrorplot(prop_twitter_df, 
+            x ="twitter", 
+            y = "prop", 
+            color = "twitter",
+            desc_stat = "mean_ci", 
+            palette="uchicago", size=.9)+
+  # Establish interval reach
+  geom_errorbar(aes(ymin = lower, ymax = upper),width = .2, position=position_dodge(.9))+
+  
+  # Add labels
+  labs(title = "University gradutes do not twitter around",
+       subtitle = "Figure 2.2",
+       y= "Propotions of bachelor/graduates who use or not twitter",
+       x= "Bachelor/Graduates",
+       caption = "Source: General Social Survey (GSS)") +
+  theme(legend.position = "none")
+
+
+```
+**Is twitter not appealing for university educated people?**
+
+Confidence intervals clearly do not overlap. There is a significant difference between one another. Therefore, there is a statistical significance between the bachelor/graduates and the rest of the people when it comes to using twitter. Does this mean that bachelors/graduates do not find twitter appealing? One hypothesis would be that twitter is more suitable for teenagers. Data on the activity of users and age would be useful to analyse this.
+
+## Email usage
+
+Can we estimate the *population* parameter on time spent on email weekly?
+
+### Data loading, cleaning and wrangling
+
+We will go back to our initial dataset and create a new variable called `email` that combines `emailhr` and `emailmin` to reports the number of minutes the respondents spend on email weekly.
+
+```{r df_email, echo=TRUE}
+# Create new object
+
+df_email <- gss %>%
+  # Add minutes for those that are not NA
+  mutate(email = case_when(
+    # Use as.numeric since those variables are "char" format.
+    emailhr!="NA" & emailmin !="NA" ~ (as.numeric(emailhr)*60 + as.numeric(emailmin)))) %>%# Multiply hour by 60 to convert into minutes
+    # Filter out "NA"
+    filter(!email=="NA")
+# Show results
+
+kable(head(df_email, 10))
+```
+
+### Distribution
+
+Let's visualise the distribution of this new variable and find the mean and the median number of minutes respondents spend on email weekly.
+
+```{r email_dist, echo=TRUE}
+# Create plot distribution
+
+ggplot(df_email, aes(x=email)) +
+  # Use histogram
+  geom_histogram(color = 'white', bins=40) +
+  # Add labels
+  labs(title="Americans and Emails - how much time do they spend? ",
+       subtitle="Figure 2.3 | Distribution of minutes spend on email by American Students",
+       y="Count",
+       x="Minutes on emails",
+       caption= "Source: General Social Survey (GSS)")
+
+# Show mean and median
+df_mean_median <- df_email %>%
+  summarise(mean = mean(email),
+            median = median(email))
+
+kable(df_mean_median)
+
+```
+
+Based on the plots, we can appreciate that the distribution of weekly minutes spend on email is `right-skewed`. Because of this, the mean will not be an interesting measure technique, as it will be completely sensitive to the outliers on the right. Therefore we should proceed to use the median to analyse it.
+
+
+### Bootstrap and CI
+Using the `infer` package, we will calculate a 95% bootstrap confidence interval for the mean amount of time Americans spend on email weekly. 
+
+```{r infer_email, echo=TRUE}
+# Set seed
+
+set.seed(1234)
+# Simulate bootstrap
+boot_email <- df_email %>%
+  # Specify variable
+  specify(response = email) %>%
+  # Simulation
+  generate(reps = 1000, type = "bootstrap") %>%
+  # Calculate median
+  calculate(stat='mean')
+
+# Distribution of bootstrap median
+ggplot(boot_email, aes(x=stat)) +
+  geom_histogram(color='white') +
+  labs(title = "Mean sample bootstrap distribution",
+     subtitle = "Figure 2.4 | The mean sample is normally distributed as expected",
+     caption = "Source: General Social Survey (GSS)",
+     y= "Sample mean variation")
+
+# Confidence interval
+ci_boot <-boot_email %>%
+  get_confidence_interval(level=0.975, type='percentile')
+
+ci_boot
+
+# Mean
+mean_time <-boot_email %>%
+  summarise(mean = mean(stat))
+
+# Convert mean into readable hours and minutes 
+time <- hms::hms(sec=0, min=mean_time$mean, hours=0)
+
+# Convert lower and upper into readable hours and minutes
+time_lower<- hms::hms(sec=0, min=ci_boot$lower_ci, hours=0)
+time_upper <-hms::hms(sec=0, min=ci_boot$upper_ci, hours=0)
+
+# Paste results
+print(paste0("Confidence interval of 95% includes a lower of: ",hour(time_lower)," hours and ",minute(time_lower), " minutes." ), quote=FALSE)
+print(paste0("Time spent on average weekly on email: ",hour(time)," hours and ",minute(time), " minutes." ), quote=FALSE)
+print(paste0("Confidence interval of 95% includes an upper of: ",hour(time_upper)," hours and ",minute(time_upper), " minutes." ), quote=FALSE)
+```
+
+According to our results, on average Americans might spend around almost 7 hours per week on the email, with a confidence interval lower of 6 hours and 20 minutes and upper of 7 hours and almost 40 minutes. 
+
+If we analysed this with a 99% confidence interval, the results would come as follows:
+
+```{r}
+boot_email %>%
+  get_confidence_interval(level=0.99, type='percentile')
+```
+
+A 99% confidence interval will be wider than a 95% confidence interval because to be more confident that the true population value falls within the
+interval we will need to allow more potential values within the interval. In that case, the z-score would equal 2.58 (as opposed to 1.96)
+
+```{r 99_CI}
+
+# Z score with 95% confidence
+qnorm(0.975)
+# Z score with 99% confidence
+qnorm(0.995)
+```
+
+In most times, the cost is not worth the less of variability.
+
+#### Was this the right approach?
+
+The problem with the last bit is that the distribution was heavily `right-skewed` - therefore, as mentioned before, the mean might not be a good estimate of the population parameter as it will be sensitive to outliers. However, if we wanted to estimate the sample median on bootstrapping, we would get the following: 
+
+```{r sample_median, echo=TRUE}
+
+
+# Set seed
+set.seed(1234)
+# Simulate bootstrap
+boot_email <- df_email %>%
+  # Specify variable
+  specify(response = email) %>%
+  # Simulation
+  generate(reps = 1000, type = "bootstrap") %>%
+  # Calculate median
+  calculate(stat="median")
+
+# Distribution of bootstrap median
+ggplot(boot_email, aes(x=stat)) +
+  geom_histogram(color='white') +
+  labs(title = "Sample median bootstrap distribution",
+     subtitle = "Figure 2.5 | Uniform distribution for the median",
+     caption = "Source: General Social Survey (GSS)",
+     y= "Sample median variation")
+
+# Confidence interval
+ci_boot <-boot_email %>%
+  get_confidence_interval(level=0.975, type='percentile')
+
+ci_boot
+
+# Mean
+mean_time <-boot_email %>%
+  summarise(mean = median(stat))
+
+# Convert mean into readable hours and minutes 
+time <- hms::hms(sec=0, min=mean_time$mean, hours=0)
+
+# Convert lower and upper into readable hours and minutes
+time_lower<- hms::hms(sec=0, min=ci_boot$lower_ci, hours=0)
+time_upper <-hms::hms(sec=0, min=ci_boot$upper_ci, hours=0)
+
+# Paste results
+print(paste0("Confidence interval of 95% includes a lower of: ",hour(time_lower)," hours and ",minute(time_lower), " minutes." ), quote=FALSE)
+print(paste0("Time spent on average weekly on email: ",hour(time)," hours and ",minute(time), " minutes." ), quote=FALSE)
+print(paste0("Confidence interval of 95% includes an upper of: ",hour(time_upper)," hours and ",minute(time_upper), " minutes." ), quote=FALSE)
+
+
+```
+#### Why is this happening?
+
+The median would have a `uniform` distribution. The problem here is that too many fall in or near zero.
+
+```{r zero_values, echo=TRUE}
+# How many people are NOT using the email?
+df_email %>% filter(email==0) %>% summarise(count=n())
+
+```
+217 People do NOT use the email at all during the week in our sample. That is about 13% of the sample size.
+
+If we check how many use it less than 100:
+
+```{r less_100, echo=TRUE}
+# How many people barely use the email
+df_email %>% filter(email<100) %>% summarise(count=n())
+
+```
+We are talking about 720 people who barely use the email.
+
+#### Solving this issue
+
+In this analysis we will just exclude those who do not use it at all `(!email==0)` - excluding a bigger sample with the idea that "they barely use it" would be infering too much in our data, so we will just stick to excluding those with 0 minutes. Let's analyse the whole thing again.
+
+
+```{r exclude_no_users, echo=TRUE}
+
+# Set seed
+set.seed(1234)
+# Simulate bootstrap
+boot_email <- df_email %>%
+  # Filter no-users
+  filter(!email==0) %>%
+  # Specify variable
+  specify(response = email) %>%
+  # Simulation
+  generate(reps = 1000, type = "bootstrap") %>%
+  # Calculate median
+  calculate(stat="median")
+
+# Distribution of bootstrap median
+ggplot(boot_email, aes(x=stat)) +
+  geom_histogram(color='white') +
+  labs(title = "Sample median bootstrap distribution",
+     subtitle = "Figure 2.6 | Uniform distribution for the median",
+     caption = "Source: General Social Survey (GSS)",
+     y= "Sample median variation")
+
+# Confidence interval
+ci_boot <-boot_email %>%
+  get_confidence_interval(level=0.975, type='percentile')
+
+ci_boot
+
+# Mean
+median_time <-boot_email %>%
+  summarise(median = median(stat))
+
+# Convert mean into readable hours and minutes 
+time <- hms::hms(sec=0, min=median_time$median, hours=0)
+
+# Convert lower and upper into readable hours and minutes
+time_lower<- hms::hms(sec=0, min=ci_boot$lower_ci, hours=0)
+time_upper <-hms::hms(sec=0, min=ci_boot$upper_ci, hours=0)
+
+# Paste results
+print(paste0("Confidence interval of 95% includes a lower of: ",hour(time_lower)," hours and ",minute(time_lower), " minutes." ), quote=FALSE)
+print(paste0("Time spent (median) weekly on email: ",hour(time)," hours and ",minute(time), " minutes." ), quote=FALSE)
+print(paste0("Confidence interval of 95% includes an upper of: ",hour(time_upper)," hours and ",minute(time_upper), " minutes." ), quote=FALSE)
+
+
+```
+As a result, we get a not so much uniform distribution, with a minimum of 2 hours, a median of 2 hours and a maximum of 3 hours.

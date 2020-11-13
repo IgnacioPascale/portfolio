@@ -1,0 +1,953 @@
+---
+categories:
+
+date: "2020-09-20"
+description: American Society's Social Behaviour in 2016
+draft: false
+keywords: ""
+slug: social_american_society
+title: How do Americans behave on Social Media?
+
+---
+
+<link href="/rmarkdown-libs/anchor-sections/anchor-sections.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/anchor-sections/anchor-sections.js"></script>
+
+
+<div id="general-social-survey-gss" class="section level1">
+<h1>General Social Survey (GSS)</h1>
+<p><strong>How does the American Society relate to social media, technology and education?</strong></p>
+<p>The <a href="http://www.gss.norc.org/">General Social Survey (GSS)</a> gathers data on American society in order to monitor and explain trends in attitudes, behaviours, and attributes. Many trends have been tracked for decades, so one can see the evolution of attitudes, etc in American Society.</p>
+<p>In this blog post, we analyze data from the <strong>2016 GSS sample data</strong>, using it to estimate values of <em>population parameters</em> of interest about US adults. The GSS sample data file has 2867 observations of 935 variables, but we are only interested in very few of these variables - therefore we will use a sample that contains only time spend in <code>email</code>, <code>snapchat</code>, <code>instagram</code>, <code>twitter</code>; their sex; and what level of education they have.</p>
+<p>Let’s take a look at the data</p>
+<pre class="r"><code>gss &lt;- read_csv(here::here(&quot;datasets&quot;, &quot;smallgss2016.csv&quot;), 
+                na = c(&quot;&quot;, &quot;Don&#39;t know&quot;,
+                       &quot;No answer&quot;, &quot;Not applicable&quot;))
+
+head(gss, 10)</code></pre>
+<pre><code>## # A tibble: 10 x 7
+##    emailmin emailhr snapchat instagrm twitter sex    degree        
+##    &lt;chr&gt;    &lt;chr&gt;   &lt;chr&gt;    &lt;chr&gt;    &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt;         
+##  1 0        12      NA       NA       NA      Male   Bachelor      
+##  2 30       0       No       No       No      Male   High school   
+##  3 NA       NA      No       No       No      Male   Bachelor      
+##  4 10       0       NA       NA       NA      Female High school   
+##  5 NA       NA      Yes      Yes      No      Female Graduate      
+##  6 0        2       No       Yes      No      Female Junior college
+##  7 0        40      NA       NA       NA      Male   High school   
+##  8 NA       NA      Yes      Yes      No      Female High school   
+##  9 0        0       NA       NA       NA      Male   High school   
+## 10 NA       NA      No       No       No      Male   Junior college</code></pre>
+<p>You will also notice that many responses should not be taken into consideration, like “No Answer”, “Don’t Know”, “Not applicable”, “Refused to Answer”. These were classified as “<code>NA</code>”</p>
+<div id="instagram-and-snapchat-by-sex" class="section level2">
+<h2>Instagram and Snapchat, by sex</h2>
+<p>Can we estimate the <em>population</em> proportion of Snapchat or Instagram users in 2016? Let’s find out.</p>
+<div id="data-loading-cleaning-and-wrangling" class="section level3">
+<h3>Data loading, cleaning and wrangling</h3>
+<p>We will first proceed to clean this dataset a bit and do data wrangling. We will create a new variable that is <em>Yes</em> if the respondent reported using any of Snapchat (<code>snapchat</code>) or Instagram (<code>instagrm</code>), and <em>No</em> if not. We will leave the <code>NA</code> and drop them later on.</p>
+<pre class="r"><code>snap_insta &lt;- gss %&gt;%
+  
+  # Create new variable
+  mutate(snap_insta = case_when (
+    instagrm==&quot;Yes&quot; | snapchat==&quot;Yes&quot; ~ &quot;Yes&quot;,
+    instagrm==&quot;No&quot; &amp; snapchat==&quot;No&quot; ~ &quot;No&quot;,
+    # Add NA as string
+    TRUE ~ &quot;NA&quot; )) 
+
+# Show results
+kable(head(snap_insta,5))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">emailmin</th>
+<th align="left">emailhr</th>
+<th align="left">snapchat</th>
+<th align="left">instagrm</th>
+<th align="left">twitter</th>
+<th align="left">sex</th>
+<th align="left">degree</th>
+<th align="left">snap_insta</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">0</td>
+<td align="left">12</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Male</td>
+<td align="left">Bachelor</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">30</td>
+<td align="left">0</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">High school</td>
+<td align="left">No</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">Bachelor</td>
+<td align="left">No</td>
+</tr>
+<tr class="even">
+<td align="left">10</td>
+<td align="left">0</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Female</td>
+<td align="left">High school</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Yes</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">Graduate</td>
+<td align="left">Yes</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="calculating-proportions" class="section level3">
+<h3>Calculating proportions</h3>
+<p>We will calculate the proportion of Yes’s for <code>snap_insta</code> among those who answered the question, i.e. excluding NAs.</p>
+<pre class="r"><code>yes_prop &lt;-snap_insta %&gt;% 
+  # Filter out NA
+  filter(!snap_insta==&quot;NA&quot;) %&gt;% 
+  # Create proportion of yes
+  summarise(yes = sum(snap_insta==&quot;Yes&quot;), # Count those who said &quot;Yes&quot;
+            count = n()) %&gt;%  # Count all records
+  # Calculate proportion (x/n)
+  mutate(yes_prop = yes/count)
+
+# Show results
+kable(yes_prop)</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="right">yes</th>
+<th align="right">count</th>
+<th align="right">yes_prop</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">514</td>
+<td align="right">1372</td>
+<td align="right">0.375</td>
+</tr>
+</tbody>
+</table>
+<p>Our point estimate (proportion) of people with snapchat or instagram seems to be about 37.5%.</p>
+</div>
+<div id="confidence-intervals" class="section level3">
+<h3>Confidence intervals</h3>
+<p>We will first use the CI formula for proportions to construct 95% CIs for men and women who used either Snapchat or Instagram. To do this, we will need to group records by sex and calculate the corresponding summary statistics (proportion and standard error)</p>
+<pre class="r"><code># Create new object &quot;df&quot; (short for data frame)
+df &lt;-snap_insta %&gt;% 
+  # Filter out NA
+  filter(!snap_insta==&quot;NA&quot;) %&gt;%
+  # Group by gender
+  group_by(sex) %&gt;%
+  # Calculate summary statistics
+  summarise(yes = sum(snap_insta==&quot;Yes&quot;),
+            count = n()) %&gt;%
+  # Calculate proportion and standard error of the proportion sample
+  mutate(yes_prop = yes/count,
+        se = sqrt(yes_prop*(1-yes_prop)/count))
+
+# Show results
+kable(df)</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">sex</th>
+<th align="right">yes</th>
+<th align="right">count</th>
+<th align="right">yes_prop</th>
+<th align="right">se</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Female</td>
+<td align="right">322</td>
+<td align="right">769</td>
+<td align="right">0.419</td>
+<td align="right">0.018</td>
+</tr>
+<tr class="even">
+<td align="left">Male</td>
+<td align="right">192</td>
+<td align="right">603</td>
+<td align="right">0.318</td>
+<td align="right">0.019</td>
+</tr>
+</tbody>
+</table>
+<p>We see that the proportion of women who use snapchat or instagram seems to be of about 42%, whereas that of men is 39%. We wil now establish a confidence interval of 95% using the conventional formula. Since the distribution of the proportion is binomial, we can approach the sample with a normal distribution and calculate the proportion estimate to infer the population parameter of the proportion.</p>
+<pre class="r"><code># We have a proportion, yet we create a CI around the proportion. The proportion is of the sample.
+
+df_ci&lt;-df %&gt;%
+  group_by(sex) %&gt;%
+  # Establish lower limit
+  summarise(lower= yes_prop - (1.96*se),
+            # Establish upper limit
+            upper= yes_prop + (1.96*se),
+            yes_prop=yes_prop,
+            se=se) %&gt;%
+  select(sex, lower, yes_prop, upper, se)
+
+kable(df_ci)</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">sex</th>
+<th align="right">lower</th>
+<th align="right">yes_prop</th>
+<th align="right">upper</th>
+<th align="right">se</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Female</td>
+<td align="right">0.384</td>
+<td align="right">0.419</td>
+<td align="right">0.454</td>
+<td align="right">0.018</td>
+</tr>
+<tr class="even">
+<td align="left">Male</td>
+<td align="right">0.281</td>
+<td align="right">0.318</td>
+<td align="right">0.356</td>
+<td align="right">0.019</td>
+</tr>
+</tbody>
+</table>
+<p>As it seems, the women’s confidence interval goes from 38% to 44%, with the estimate proportion around 42%. Men’s interval goes from 28% to 35%, with the estimate proportion around 32%. We can appreciate this on the following plot.</p>
+<pre class="r"><code># We will use ggerrorplot from the library ggpubr
+ggerrorplot(df_ci, 
+            x =&quot;sex&quot;, 
+            y = &quot;yes_prop&quot;, 
+            color = &quot;sex&quot;,
+            desc_stat = &quot;mean_ci&quot;, 
+            palette=&quot;uchicago&quot;, 
+            size=.9) +
+  
+  # Add bar of CI
+  geom_errorbar(aes(ymin = lower, 
+                    ymax = upper), width = .2, position=position_dodge(.9) ) +
+  
+  # Add labels
+  labs(title = &quot;Do more women use instagram/snapchat than men?&quot;,
+       subtitle = &quot;Figure 2.1&quot;,
+       y= &quot;Estimate proportion of people who use instagram/snapchat&quot;,
+       x= &quot;Gender&quot;,
+       caption = &quot;Source: General Social Survey (GSS)&quot;) +
+  
+  # Remove legend
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="/posts/social_american_society_files/figure-html/ci_df_plot-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p>If our results could be generizable, then we could say that in proportion, more women use instragram/snapchat than men. There is a statistical significance in the difference between the proportions, as the confidence intervals do not overlap.</p>
+</div>
+</div>
+<div id="twitter-by-education-level" class="section level2">
+<h2>Twitter, by education level</h2>
+<p>Can we estimate the <em>population</em> proportion of Twitter users by education level in 2016?.</p>
+<div id="data-loading-cleaning-and-wrangling-1" class="section level3">
+<h3>Data loading, cleaning and wrangling</h3>
+<p>There are 5 education levels in variable <code>degree</code> which, in ascending order of years of education, are Lt high school, High School, Junior college, Bachelor, Graduate.</p>
+<p>We will first turn <code>degree</code> from a character variable into a factor variable. We will convert this into a factor and establish the levels so the plot will take those in a certain order.</p>
+<pre class="r"><code># Convert degree into a factor and establish levels
+twitter_df &lt;- gss %&gt;%
+  mutate(degree = factor(degree, c(&quot;Lt high school&quot;,&quot;High School&quot;,&quot;Junior college&quot;,&quot;Bachelor&quot;,&quot;Graduate&quot;)))
+
+# Show results
+
+kable(head(twitter_df, 5))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">emailmin</th>
+<th align="left">emailhr</th>
+<th align="left">snapchat</th>
+<th align="left">instagrm</th>
+<th align="left">twitter</th>
+<th align="left">sex</th>
+<th align="left">degree</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">0</td>
+<td align="left">12</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Male</td>
+<td align="left">Bachelor</td>
+</tr>
+<tr class="even">
+<td align="left">30</td>
+<td align="left">0</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">Bachelor</td>
+</tr>
+<tr class="even">
+<td align="left">10</td>
+<td align="left">0</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Female</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Yes</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">Graduate</td>
+</tr>
+</tbody>
+</table>
+<p>Now we will create a new variable, <code>bachelor_graduate</code> that is <em>Yes</em> if the respondent has either a <code>Bachelor</code> or <code>Graduate</code> degree. As before, if the recorded value for either was NA, the value will also be NA. We will drop these for the analysis as well.</p>
+<pre class="r"><code>twitter_df &lt;- twitter_df %&gt;% 
+  # Create bachelor_graduate
+  mutate(bachelor_graduate = case_when(
+    degree %in% c(&quot;Bachelor&quot;,&quot;Graduate&quot;) ~ &quot;Yes&quot;,
+    is.na(degree) ~ &quot;NA&quot;,
+    
+    #Else
+    TRUE ~ &quot;No&quot;))
+
+# Filter out NAs
+twitter_df &lt;- twitter_df %&gt;% filter(!bachelor_graduate==&quot;NA&quot;)
+
+# Show Results
+kable(head(twitter_df, 10))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">emailmin</th>
+<th align="left">emailhr</th>
+<th align="left">snapchat</th>
+<th align="left">instagrm</th>
+<th align="left">twitter</th>
+<th align="left">sex</th>
+<th align="left">degree</th>
+<th align="left">bachelor_graduate</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">0</td>
+<td align="left">12</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Male</td>
+<td align="left">Bachelor</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="even">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">Bachelor</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Yes</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">Graduate</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="even">
+<td align="left">0</td>
+<td align="left">2</td>
+<td align="left">No</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">Junior college</td>
+<td align="left">No</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">Junior college</td>
+<td align="left">No</td>
+</tr>
+<tr class="even">
+<td align="left">30</td>
+<td align="left">0</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">Lt high school</td>
+<td align="left">No</td>
+</tr>
+<tr class="odd">
+<td align="left">0</td>
+<td align="left">1</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Female</td>
+<td align="left">Lt high school</td>
+<td align="left">No</td>
+</tr>
+<tr class="even">
+<td align="left">0</td>
+<td align="left">1</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Yes</td>
+<td align="left">Male</td>
+<td align="left">Graduate</td>
+<td align="left">Yes</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">No</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">Lt high school</td>
+<td align="left">No</td>
+</tr>
+<tr class="even">
+<td align="left">0</td>
+<td align="left">1</td>
+<td align="left">Yes</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">Lt high school</td>
+<td align="left">No</td>
+</tr>
+</tbody>
+</table>
+<p>Our data set is now good to go.</p>
+</div>
+<div id="calculating-proportions-1" class="section level3">
+<h3>Calculating proportions</h3>
+<p>We will calculate the proportion of <code>bachelor_graduate</code> who do (Yes) and who don’t (No) use twitter.</p>
+<pre class="r"><code># Create new object
+prop_twitter_df &lt;- twitter_df %&gt;%
+   # filter by Yes in bachelor graduates
+  filter(bachelor_graduate==&quot;Yes&quot; &amp; !twitter ==&quot;NA&quot;) %&gt;%
+  # Group by Yes/No
+  group_by(twitter) %&gt;%
+  # Count records
+  summarise(count=n()) %&gt;%
+  # Create total count and proportion for each group
+  mutate(total = sum(count),
+         prop = count/total) %&gt;%
+  # Show &quot;Yes&quot; first
+  arrange(desc(twitter))
+
+# Show results
+kable(head(prop_twitter_df, 10))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">twitter</th>
+<th align="right">count</th>
+<th align="right">total</th>
+<th align="right">prop</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Yes</td>
+<td align="right">114</td>
+<td align="right">489</td>
+<td align="right">0.233</td>
+</tr>
+<tr class="even">
+<td align="left">No</td>
+<td align="right">375</td>
+<td align="right">489</td>
+<td align="right">0.767</td>
+</tr>
+</tbody>
+</table>
+<p>Using the CI formula for proportions, we will construct two 95% CIs for <code>bachelor_graduate</code> vs whether they use (Yes) and don’t (No) use twitter.</p>
+<pre class="r"><code># Create confidence interval with formula
+
+prop_twitter_df&lt;- prop_twitter_df %&gt;%
+  # Create standard error, lower and upper
+  mutate(se = sqrt(prop*(1-prop)/total),
+         lower = prop - se*1.96,
+         upper = prop + se*1.96) %&gt;%
+  # Select relevant variables
+  select(twitter, total, count, se, lower, prop, upper)
+
+# Show results
+kable(head(prop_twitter_df, 10))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">twitter</th>
+<th align="right">total</th>
+<th align="right">count</th>
+<th align="right">se</th>
+<th align="right">lower</th>
+<th align="right">prop</th>
+<th align="right">upper</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Yes</td>
+<td align="right">489</td>
+<td align="right">114</td>
+<td align="right">0.019</td>
+<td align="right">0.196</td>
+<td align="right">0.233</td>
+<td align="right">0.271</td>
+</tr>
+<tr class="even">
+<td align="left">No</td>
+<td align="right">489</td>
+<td align="right">375</td>
+<td align="right">0.019</td>
+<td align="right">0.729</td>
+<td align="right">0.767</td>
+<td align="right">0.804</td>
+</tr>
+</tbody>
+</table>
+<p>According to our estimates, 76% of those who are educated up to either bachelor/masters degree do use twitter, whereas 24% are not. The confidence interval for those who are goes from 73% to 80%, and that of those who are not goes from 19% to 27%. As we can appreciate in the following plot, the intervals <strong>DO NOT</strong> overlap.</p>
+<pre class="r"><code># Use ggpubr for this 
+ggerrorplot(prop_twitter_df, 
+            x =&quot;twitter&quot;, 
+            y = &quot;prop&quot;, 
+            color = &quot;twitter&quot;,
+            desc_stat = &quot;mean_ci&quot;, 
+            palette=&quot;uchicago&quot;, size=.9)+
+  # Establish interval reach
+  geom_errorbar(aes(ymin = lower, ymax = upper),width = .2, position=position_dodge(.9))+
+  
+  # Add labels
+  labs(title = &quot;University gradutes do not twitter around&quot;,
+       subtitle = &quot;Figure 2.2&quot;,
+       y= &quot;Propotions of bachelor/graduates who use or not twitter&quot;,
+       x= &quot;Bachelor/Graduates&quot;,
+       caption = &quot;Source: General Social Survey (GSS)&quot;) +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="/posts/social_american_society_files/figure-html/plot_intervals_twitter-1.png" width="648" style="display: block; margin: auto;" />
+<strong>Is twitter not appealing for university educated people?</strong></p>
+<p>Confidence intervals clearly do not overlap. There is a significant difference between one another. Therefore, there is a statistical significance between the bachelor/graduates and the rest of the people when it comes to using twitter. Does this mean that bachelors/graduates do not find twitter appealing? One hypothesis would be that twitter is more suitable for teenagers. Data on the activity of users and age would be useful to analyse this.</p>
+</div>
+</div>
+<div id="email-usage" class="section level2">
+<h2>Email usage</h2>
+<p>Can we estimate the <em>population</em> parameter on time spent on email weekly?</p>
+<div id="data-loading-cleaning-and-wrangling-2" class="section level3">
+<h3>Data loading, cleaning and wrangling</h3>
+<p>We will go back to our initial dataset and create a new variable called <code>email</code> that combines <code>emailhr</code> and <code>emailmin</code> to reports the number of minutes the respondents spend on email weekly.</p>
+<pre class="r"><code># Create new object
+
+df_email &lt;- gss %&gt;%
+  # Add minutes for those that are not NA
+  mutate(email = case_when(
+    # Use as.numeric since those variables are &quot;char&quot; format.
+    emailhr!=&quot;NA&quot; &amp; emailmin !=&quot;NA&quot; ~ (as.numeric(emailhr)*60 + as.numeric(emailmin)))) %&gt;%# Multiply hour by 60 to convert into minutes
+    # Filter out &quot;NA&quot;
+    filter(!email==&quot;NA&quot;)
+# Show results
+
+kable(head(df_email, 10))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">emailmin</th>
+<th align="left">emailhr</th>
+<th align="left">snapchat</th>
+<th align="left">instagrm</th>
+<th align="left">twitter</th>
+<th align="left">sex</th>
+<th align="left">degree</th>
+<th align="right">email</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">0</td>
+<td align="left">12</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Male</td>
+<td align="left">Bachelor</td>
+<td align="right">720</td>
+</tr>
+<tr class="even">
+<td align="left">30</td>
+<td align="left">0</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">High school</td>
+<td align="right">30</td>
+</tr>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">0</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Female</td>
+<td align="left">High school</td>
+<td align="right">10</td>
+</tr>
+<tr class="even">
+<td align="left">0</td>
+<td align="left">2</td>
+<td align="left">No</td>
+<td align="left">Yes</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">Junior college</td>
+<td align="right">120</td>
+</tr>
+<tr class="odd">
+<td align="left">0</td>
+<td align="left">40</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Male</td>
+<td align="left">High school</td>
+<td align="right">2400</td>
+</tr>
+<tr class="even">
+<td align="left">0</td>
+<td align="left">0</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Male</td>
+<td align="left">High school</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">0</td>
+<td align="left">2</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Female</td>
+<td align="left">High school</td>
+<td align="right">120</td>
+</tr>
+<tr class="even">
+<td align="left">0</td>
+<td align="left">10</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">High school</td>
+<td align="right">600</td>
+</tr>
+<tr class="odd">
+<td align="left">30</td>
+<td align="left">0</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">No</td>
+<td align="left">Male</td>
+<td align="left">Lt high school</td>
+<td align="right">30</td>
+</tr>
+<tr class="even">
+<td align="left">0</td>
+<td align="left">1</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+<td align="left">Female</td>
+<td align="left">Lt high school</td>
+<td align="right">60</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="distribution" class="section level3">
+<h3>Distribution</h3>
+<p>Let’s visualise the distribution of this new variable and find the mean and the median number of minutes respondents spend on email weekly.</p>
+<pre class="r"><code># Create plot distribution
+
+ggplot(df_email, aes(x=email)) +
+  # Use histogram
+  geom_histogram(color = &#39;white&#39;, bins=40) +
+  # Add labels
+  labs(title=&quot;Americans and Emails - how much time do they spend? &quot;,
+       subtitle=&quot;Figure 2.3 | Distribution of minutes spend on email by American Students&quot;,
+       y=&quot;Count&quot;,
+       x=&quot;Minutes on emails&quot;,
+       caption= &quot;Source: General Social Survey (GSS)&quot;)</code></pre>
+<p><img src="/posts/social_american_society_files/figure-html/email_dist-1.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># Show mean and median
+df_mean_median &lt;- df_email %&gt;%
+  summarise(mean = mean(email),
+            median = median(email))
+
+kable(df_mean_median)</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="right">mean</th>
+<th align="right">median</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">417</td>
+<td align="right">120</td>
+</tr>
+</tbody>
+</table>
+<p>Based on the plots, we can appreciate that the distribution of weekly minutes spend on email is <code>right-skewed</code>. Because of this, the mean will not be an interesting measure technique, as it will be completely sensitive to the outliers on the right. Therefore we should proceed to use the median to analyse it.</p>
+</div>
+<div id="bootstrap-and-ci" class="section level3">
+<h3>Bootstrap and CI</h3>
+<p>Using the <code>infer</code> package, we will calculate a 95% bootstrap confidence interval for the mean amount of time Americans spend on email weekly.</p>
+<pre class="r"><code># Set seed
+
+set.seed(1234)
+# Simulate bootstrap
+boot_email &lt;- df_email %&gt;%
+  # Specify variable
+  specify(response = email) %&gt;%
+  # Simulation
+  generate(reps = 1000, type = &quot;bootstrap&quot;) %&gt;%
+  # Calculate median
+  calculate(stat=&#39;mean&#39;)
+
+# Distribution of bootstrap median
+ggplot(boot_email, aes(x=stat)) +
+  geom_histogram(color=&#39;white&#39;) +
+  labs(title = &quot;Mean sample bootstrap distribution&quot;,
+     subtitle = &quot;Figure 2.4 | The mean sample is normally distributed as expected&quot;,
+     caption = &quot;Source: General Social Survey (GSS)&quot;,
+     y= &quot;Sample mean variation&quot;)</code></pre>
+<p><img src="/posts/social_american_society_files/figure-html/infer_email-1.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># Confidence interval
+ci_boot &lt;-boot_email %&gt;%
+  get_confidence_interval(level=0.975, type=&#39;percentile&#39;)
+
+ci_boot</code></pre>
+<pre><code>## # A tibble: 1 x 2
+##   lower_ci upper_ci
+##      &lt;dbl&gt;    &lt;dbl&gt;
+## 1     381.     459.</code></pre>
+<pre class="r"><code># Mean
+mean_time &lt;-boot_email %&gt;%
+  summarise(mean = mean(stat))
+
+# Convert mean into readable hours and minutes 
+time &lt;- hms::hms(sec=0, min=mean_time$mean, hours=0)
+
+# Convert lower and upper into readable hours and minutes
+time_lower&lt;- hms::hms(sec=0, min=ci_boot$lower_ci, hours=0)
+time_upper &lt;-hms::hms(sec=0, min=ci_boot$upper_ci, hours=0)
+
+# Paste results
+print(paste0(&quot;Confidence interval of 95% includes a lower of: &quot;,hour(time_lower),&quot; hours and &quot;,minute(time_lower), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Confidence interval of 95% includes a lower of: 6 hours and 20 minutes.</code></pre>
+<pre class="r"><code>print(paste0(&quot;Time spent on average weekly on email: &quot;,hour(time),&quot; hours and &quot;,minute(time), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Time spent on average weekly on email: 6 hours and 57 minutes.</code></pre>
+<pre class="r"><code>print(paste0(&quot;Confidence interval of 95% includes an upper of: &quot;,hour(time_upper),&quot; hours and &quot;,minute(time_upper), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Confidence interval of 95% includes an upper of: 7 hours and 38 minutes.</code></pre>
+<p>According to our results, on average Americans might spend around almost 7 hours per week on the email, with a confidence interval lower of 6 hours and 20 minutes and upper of 7 hours and almost 40 minutes.</p>
+<p>If we analysed this with a 99% confidence interval, the results would come as follows:</p>
+<pre class="r"><code>boot_email %&gt;%
+  get_confidence_interval(level=0.99, type=&#39;percentile&#39;)</code></pre>
+<pre><code>## # A tibble: 1 x 2
+##   lower_ci upper_ci
+##      &lt;dbl&gt;    &lt;dbl&gt;
+## 1     375.     465.</code></pre>
+<p>A 99% confidence interval will be wider than a 95% confidence interval because to be more confident that the true population value falls within the
+interval we will need to allow more potential values within the interval. In that case, the z-score would equal 2.58 (as opposed to 1.96)</p>
+<pre class="r"><code># Z score with 95% confidence
+qnorm(0.975)</code></pre>
+<pre><code>## [1] 1.96</code></pre>
+<pre class="r"><code># Z score with 99% confidence
+qnorm(0.995)</code></pre>
+<pre><code>## [1] 2.58</code></pre>
+<p>In most times, the cost is not worth the less of variability.</p>
+<div id="was-this-the-right-approach" class="section level4">
+<h4>Was this the right approach?</h4>
+<p>The problem with the last bit is that the distribution was heavily <code>right-skewed</code> - therefore, as mentioned before, the mean might not be a good estimate of the population parameter as it will be sensitive to outliers. However, if we wanted to estimate the sample median on bootstrapping, we would get the following:</p>
+<pre class="r"><code># Set seed
+set.seed(1234)
+# Simulate bootstrap
+boot_email &lt;- df_email %&gt;%
+  # Specify variable
+  specify(response = email) %&gt;%
+  # Simulation
+  generate(reps = 1000, type = &quot;bootstrap&quot;) %&gt;%
+  # Calculate median
+  calculate(stat=&quot;median&quot;)
+
+# Distribution of bootstrap median
+ggplot(boot_email, aes(x=stat)) +
+  geom_histogram(color=&#39;white&#39;) +
+  labs(title = &quot;Sample median bootstrap distribution&quot;,
+     subtitle = &quot;Figure 2.5 | Uniform distribution for the median&quot;,
+     caption = &quot;Source: General Social Survey (GSS)&quot;,
+     y= &quot;Sample median variation&quot;)</code></pre>
+<p><img src="/posts/social_american_society_files/figure-html/sample_median-1.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># Confidence interval
+ci_boot &lt;-boot_email %&gt;%
+  get_confidence_interval(level=0.975, type=&#39;percentile&#39;)
+
+ci_boot</code></pre>
+<pre><code>## # A tibble: 1 x 2
+##   lower_ci upper_ci
+##      &lt;dbl&gt;    &lt;dbl&gt;
+## 1      120      120</code></pre>
+<pre class="r"><code># Mean
+mean_time &lt;-boot_email %&gt;%
+  summarise(mean = median(stat))
+
+# Convert mean into readable hours and minutes 
+time &lt;- hms::hms(sec=0, min=mean_time$mean, hours=0)
+
+# Convert lower and upper into readable hours and minutes
+time_lower&lt;- hms::hms(sec=0, min=ci_boot$lower_ci, hours=0)
+time_upper &lt;-hms::hms(sec=0, min=ci_boot$upper_ci, hours=0)
+
+# Paste results
+print(paste0(&quot;Confidence interval of 95% includes a lower of: &quot;,hour(time_lower),&quot; hours and &quot;,minute(time_lower), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Confidence interval of 95% includes a lower of: 2 hours and 0 minutes.</code></pre>
+<pre class="r"><code>print(paste0(&quot;Time spent on average weekly on email: &quot;,hour(time),&quot; hours and &quot;,minute(time), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Time spent on average weekly on email: 2 hours and 0 minutes.</code></pre>
+<pre class="r"><code>print(paste0(&quot;Confidence interval of 95% includes an upper of: &quot;,hour(time_upper),&quot; hours and &quot;,minute(time_upper), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Confidence interval of 95% includes an upper of: 2 hours and 0 minutes.</code></pre>
+</div>
+<div id="why-is-this-happening" class="section level4">
+<h4>Why is this happening?</h4>
+<p>The median would have a <code>uniform</code> distribution. The problem here is that too many fall in or near zero.</p>
+<pre class="r"><code># How many people are NOT using the email?
+df_email %&gt;% filter(email==0) %&gt;% summarise(count=n())</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##   count
+##   &lt;int&gt;
+## 1   217</code></pre>
+<p>217 People do NOT use the email at all during the week in our sample. That is about 13% of the sample size.</p>
+<p>If we check how many use it less than 100:</p>
+<pre class="r"><code># How many people barely use the email
+df_email %&gt;% filter(email&lt;100) %&gt;% summarise(count=n())</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##   count
+##   &lt;int&gt;
+## 1   720</code></pre>
+<p>We are talking about 720 people who barely use the email.</p>
+</div>
+<div id="solving-this-issue" class="section level4">
+<h4>Solving this issue</h4>
+<p>In this analysis we will just exclude those who do not use it at all <code>(!email==0)</code> - excluding a bigger sample with the idea that “they barely use it” would be infering too much in our data, so we will just stick to excluding those with 0 minutes. Let’s analyse the whole thing again.</p>
+<pre class="r"><code># Set seed
+set.seed(1234)
+# Simulate bootstrap
+boot_email &lt;- df_email %&gt;%
+  # Filter no-users
+  filter(!email==0) %&gt;%
+  # Specify variable
+  specify(response = email) %&gt;%
+  # Simulation
+  generate(reps = 1000, type = &quot;bootstrap&quot;) %&gt;%
+  # Calculate median
+  calculate(stat=&quot;median&quot;)
+
+# Distribution of bootstrap median
+ggplot(boot_email, aes(x=stat)) +
+  geom_histogram(color=&#39;white&#39;) +
+  labs(title = &quot;Sample median bootstrap distribution&quot;,
+     subtitle = &quot;Figure 2.6 | Uniform distribution for the median&quot;,
+     caption = &quot;Source: General Social Survey (GSS)&quot;,
+     y= &quot;Sample median variation&quot;)</code></pre>
+<p><img src="/posts/social_american_society_files/figure-html/exclude_no_users-1.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># Confidence interval
+ci_boot &lt;-boot_email %&gt;%
+  get_confidence_interval(level=0.975, type=&#39;percentile&#39;)
+
+ci_boot</code></pre>
+<pre><code>## # A tibble: 1 x 2
+##   lower_ci upper_ci
+##      &lt;dbl&gt;    &lt;dbl&gt;
+## 1      120      180</code></pre>
+<pre class="r"><code># Mean
+median_time &lt;-boot_email %&gt;%
+  summarise(median = median(stat))
+
+# Convert mean into readable hours and minutes 
+time &lt;- hms::hms(sec=0, min=median_time$median, hours=0)
+
+# Convert lower and upper into readable hours and minutes
+time_lower&lt;- hms::hms(sec=0, min=ci_boot$lower_ci, hours=0)
+time_upper &lt;-hms::hms(sec=0, min=ci_boot$upper_ci, hours=0)
+
+# Paste results
+print(paste0(&quot;Confidence interval of 95% includes a lower of: &quot;,hour(time_lower),&quot; hours and &quot;,minute(time_lower), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Confidence interval of 95% includes a lower of: 2 hours and 0 minutes.</code></pre>
+<pre class="r"><code>print(paste0(&quot;Time spent (median) weekly on email: &quot;,hour(time),&quot; hours and &quot;,minute(time), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Time spent (median) weekly on email: 3 hours and 0 minutes.</code></pre>
+<pre class="r"><code>print(paste0(&quot;Confidence interval of 95% includes an upper of: &quot;,hour(time_upper),&quot; hours and &quot;,minute(time_upper), &quot; minutes.&quot; ), quote=FALSE)</code></pre>
+<pre><code>## [1] Confidence interval of 95% includes an upper of: 3 hours and 0 minutes.</code></pre>
+<p>As a result, we get a not so much uniform distribution, with a minimum of 2 hours, a median of 2 hours and a maximum of 3 hours.</p>
+</div>
+</div>
+</div>
+</div>

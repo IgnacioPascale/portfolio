@@ -1,0 +1,4113 @@
+---
+categories:
+date: "2020-09-20"
+description: A linear regression approach on predicting hirings of London Bikes
+draft: false
+keywords: ""
+slug: londonBikes_regression
+title: How many bikes will be hired on a regular day on Summer?
+---
+
+<link href="/rmarkdown-libs/anchor-sections/anchor-sections.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/anchor-sections/anchor-sections.js"></script>
+
+
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>In the following workshop I will analyse the data set <code>londonBikes</code> from the UK Government. I will try to build a model in which to quantify the relationship of hired bikes and some explanatory variables using regression analysis, and shortly after I will use that model to predict the number hirings for a regular day in London in Summer with more than 15 degrees Celcius.</p>
+<p>The workflow will proceed as follows:</p>
+<ol style="list-style-type: decimal">
+<li>Clean and inspect the data</li>
+<li>Exploratory Data Analysis</li>
+<li>Build models</li>
+<li>Build diagnostics</li>
+<li>Predict</li>
+</ol>
+</div>
+<div id="clean-and-inspect-the-data" class="section level1">
+<h1>Clean and inspect the data</h1>
+<p>We will first import the following dataset.</p>
+<pre class="r"><code># Import bikes dataset
+bikes &lt;- read_csv(here(&quot;datasets&quot;, &quot;londonBikes.csv&quot;))</code></pre>
+<p>It’s always a good idea to get a glimpse of what our data looks like.</p>
+<pre class="r"><code># Take a glimpse at the data
+glimpse(bikes)</code></pre>
+<pre><code>## Rows: 3,439
+## Columns: 14
+## $ date          &lt;chr&gt; &quot;01-01-11&quot;, &quot;02-01-11&quot;, &quot;03-01-11&quot;, &quot;04-01-11&quot;, &quot;05-01-…
+## $ bikes_hired   &lt;dbl&gt; 4555, 6250, 7262, 13430, 13757, 9595, 9294, 9338, 10558…
+## $ season        &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
+## $ min_temp      &lt;dbl&gt; 7.2, 4.0, 2.9, NA, 7.1, NA, 10.8, 10.4, 7.2, 8.9, 8.3, …
+## $ max_temp      &lt;dbl&gt; NA, NA, NA, 0.3, 3.8, NA, 1.0, NA, NA, -1.9, NA, 3.7, N…
+## $ avg_temp      &lt;dbl&gt; 5.6, 2.9, 1.4, 2.7, 5.6, 4.1, 6.1, 6.9, 3.1, 4.3, 5.8, …
+## $ avg_humidity  &lt;dbl&gt; 84, 79, 80, 87, 84, 92, 92, 82, 79, 87, 82, 89, 89, 87,…
+## $ avg_pressure  &lt;dbl&gt; 1025, 1028, 1024, 1013, 1000, 996, 999, 997, 1012, 1011…
+## $ avg_windspeed &lt;dbl&gt; 10, 8, 6, 6, 19, 5, 11, 23, 16, 14, 16, 16, 23, 24, 24,…
+## $ rainfall_mm   &lt;dbl&gt; 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 11.4, 13.0, 1.0, 0.0, 7.1…
+## $ rain          &lt;lgl&gt; TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE…
+## $ fog           &lt;lgl&gt; FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, F…
+## $ thunderstorm  &lt;lgl&gt; FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,…
+## $ snow          &lt;lgl&gt; FALSE, FALSE, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, F…</code></pre>
+<pre class="r"><code>skim(bikes)</code></pre>
+<table style='width: auto;'
+        class='table table-condensed'>
+<caption>
+<span id="tab:skim">Table 1: </span>Data summary
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:left;">
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Name
+</td>
+<td style="text-align:left;">
+bikes
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Number of rows
+</td>
+<td style="text-align:left;">
+3439
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Number of columns
+</td>
+<td style="text-align:left;">
+14
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+_______________________
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Column type frequency:
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+character
+</td>
+<td style="text-align:left;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+logical
+</td>
+<td style="text-align:left;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+9
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+________________________
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Group variables
+</td>
+<td style="text-align:left;">
+None
+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+skim_variable
+</th>
+<th style="text-align:right;">
+n_missing
+</th>
+<th style="text-align:right;">
+complete_rate
+</th>
+<th style="text-align:right;">
+min
+</th>
+<th style="text-align:right;">
+max
+</th>
+<th style="text-align:right;">
+empty
+</th>
+<th style="text-align:right;">
+n_unique
+</th>
+<th style="text-align:right;">
+whitespace
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+date
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+3439
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: logical</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+skim_variable
+</th>
+<th style="text-align:right;">
+n_missing
+</th>
+<th style="text-align:right;">
+complete_rate
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:left;">
+count
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+rain
+</td>
+<td style="text-align:right;">
+851
+</td>
+<td style="text-align:right;">
+0.75
+</td>
+<td style="text-align:right;">
+0.62
+</td>
+<td style="text-align:left;">
+TRU: 1595, FAL: 993
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+fog
+</td>
+<td style="text-align:right;">
+851
+</td>
+<td style="text-align:right;">
+0.75
+</td>
+<td style="text-align:right;">
+0.07
+</td>
+<td style="text-align:left;">
+FAL: 2403, TRU: 185
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+thunderstorm
+</td>
+<td style="text-align:right;">
+851
+</td>
+<td style="text-align:right;">
+0.75
+</td>
+<td style="text-align:right;">
+0.03
+</td>
+<td style="text-align:left;">
+FAL: 2512, TRU: 76
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+snow
+</td>
+<td style="text-align:right;">
+851
+</td>
+<td style="text-align:right;">
+0.75
+</td>
+<td style="text-align:right;">
+0.02
+</td>
+<td style="text-align:left;">
+FAL: 2533, TRU: 55
+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+skim_variable
+</th>
+<th style="text-align:right;">
+n_missing
+</th>
+<th style="text-align:right;">
+complete_rate
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+p0
+</th>
+<th style="text-align:right;">
+p25
+</th>
+<th style="text-align:right;">
+p50
+</th>
+<th style="text-align:right;">
+p75
+</th>
+<th style="text-align:right;">
+p100
+</th>
+<th style="text-align:left;">
+hist
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+bikes_hired
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+26158.95
+</td>
+<td style="text-align:right;">
+9135.13
+</td>
+<td style="text-align:right;">
+3531.0
+</td>
+<td style="text-align:right;">
+19626.00
+</td>
+<td style="text-align:right;">
+26022.0
+</td>
+<td style="text-align:right;">
+32759.0
+</td>
+<td style="text-align:right;">
+73094.0
+</td>
+<td style="text-align:left;">
+▃▇▅▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.46
+</td>
+<td style="text-align:right;">
+1.12
+</td>
+<td style="text-align:right;">
+1.0
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.0
+</td>
+<td style="text-align:right;">
+3.0
+</td>
+<td style="text-align:right;">
+4.0
+</td>
+<td style="text-align:left;">
+▇▇▁▇▇
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+min_temp
+</td>
+<td style="text-align:right;">
+1877
+</td>
+<td style="text-align:right;">
+0.45
+</td>
+<td style="text-align:right;">
+16.48
+</td>
+<td style="text-align:right;">
+6.19
+</td>
+<td style="text-align:right;">
+-1.2
+</td>
+<td style="text-align:right;">
+11.93
+</td>
+<td style="text-align:right;">
+16.7
+</td>
+<td style="text-align:right;">
+20.9
+</td>
+<td style="text-align:right;">
+36.7
+</td>
+<td style="text-align:left;">
+▁▆▇▃▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+max_temp
+</td>
+<td style="text-align:right;">
+1929
+</td>
+<td style="text-align:right;">
+0.44
+</td>
+<td style="text-align:right;">
+7.62
+</td>
+<td style="text-align:right;">
+5.14
+</td>
+<td style="text-align:right;">
+-8.2
+</td>
+<td style="text-align:right;">
+3.90
+</td>
+<td style="text-align:right;">
+7.9
+</td>
+<td style="text-align:right;">
+11.8
+</td>
+<td style="text-align:right;">
+20.0
+</td>
+<td style="text-align:left;">
+▁▅▇▇▂
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_temp
+</td>
+<td style="text-align:right;">
+27
+</td>
+<td style="text-align:right;">
+0.99
+</td>
+<td style="text-align:right;">
+11.70
+</td>
+<td style="text-align:right;">
+5.41
+</td>
+<td style="text-align:right;">
+-4.1
+</td>
+<td style="text-align:right;">
+7.60
+</td>
+<td style="text-align:right;">
+11.6
+</td>
+<td style="text-align:right;">
+15.9
+</td>
+<td style="text-align:right;">
+28.6
+</td>
+<td style="text-align:left;">
+▁▆▇▅▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_humidity
+</td>
+<td style="text-align:right;">
+745
+</td>
+<td style="text-align:right;">
+0.78
+</td>
+<td style="text-align:right;">
+74.91
+</td>
+<td style="text-align:right;">
+10.84
+</td>
+<td style="text-align:right;">
+37.0
+</td>
+<td style="text-align:right;">
+67.00
+</td>
+<td style="text-align:right;">
+76.0
+</td>
+<td style="text-align:right;">
+83.0
+</td>
+<td style="text-align:right;">
+100.0
+</td>
+<td style="text-align:left;">
+▁▂▆▇▂
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_pressure
+</td>
+<td style="text-align:right;">
+773
+</td>
+<td style="text-align:right;">
+0.78
+</td>
+<td style="text-align:right;">
+1015.10
+</td>
+<td style="text-align:right;">
+10.24
+</td>
+<td style="text-align:right;">
+979.0
+</td>
+<td style="text-align:right;">
+1009.00
+</td>
+<td style="text-align:right;">
+1016.0
+</td>
+<td style="text-align:right;">
+1022.0
+</td>
+<td style="text-align:right;">
+1044.0
+</td>
+<td style="text-align:left;">
+▁▂▇▆▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_windspeed
+</td>
+<td style="text-align:right;">
+745
+</td>
+<td style="text-align:right;">
+0.78
+</td>
+<td style="text-align:right;">
+14.01
+</td>
+<td style="text-align:right;">
+6.10
+</td>
+<td style="text-align:right;">
+3.0
+</td>
+<td style="text-align:right;">
+10.00
+</td>
+<td style="text-align:right;">
+13.0
+</td>
+<td style="text-align:right;">
+18.0
+</td>
+<td style="text-align:right;">
+47.0
+</td>
+<td style="text-align:left;">
+▇▇▂▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rainfall_mm
+</td>
+<td style="text-align:right;">
+51
+</td>
+<td style="text-align:right;">
+0.99
+</td>
+<td style="text-align:right;">
+1.67
+</td>
+<td style="text-align:right;">
+3.68
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+1.5
+</td>
+<td style="text-align:right;">
+48.0
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+</tbody>
+</table>
+<p>We have a dataset with 3439 observations and 14 variables. Unfortunately, our data set is filled with null values as well, in particular with <code>min_temp</code> and <code>max_temp</code>. However, we are not going to use these 2, but the <code>avg_temp</code>, where there are only 27 <code>NA</code>.</p>
+<p>Now let’s take a look at the raw data by taking a sample of 5.</p>
+<pre class="r"><code># Sample of 5
+sample_n(bikes, 5) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+date
+</th>
+<th style="text-align:right;">
+bikes_hired
+</th>
+<th style="text-align:right;">
+season
+</th>
+<th style="text-align:right;">
+min_temp
+</th>
+<th style="text-align:right;">
+max_temp
+</th>
+<th style="text-align:right;">
+avg_temp
+</th>
+<th style="text-align:right;">
+avg_humidity
+</th>
+<th style="text-align:right;">
+avg_pressure
+</th>
+<th style="text-align:right;">
+avg_windspeed
+</th>
+<th style="text-align:right;">
+rainfall_mm
+</th>
+<th style="text-align:left;">
+rain
+</th>
+<th style="text-align:left;">
+fog
+</th>
+<th style="text-align:left;">
+thunderstorm
+</th>
+<th style="text-align:left;">
+snow
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+16-10-19
+</td>
+<td style="text-align:right;">
+30763
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+12.9
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+0.3
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+10-09-17
+</td>
+<td style="text-align:right;">
+21298
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+17.4
+</td>
+<td style="text-align:right;">
+8.6
+</td>
+<td style="text-align:right;">
+13.3
+</td>
+<td style="text-align:right;">
+84
+</td>
+<td style="text-align:right;">
+999
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+7.1
+</td>
+<td style="text-align:left;">
+TRUE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+11-12-18
+</td>
+<td style="text-align:right;">
+28904
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+1.7
+</td>
+<td style="text-align:right;">
+5.4
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+01-09-17
+</td>
+<td style="text-align:right;">
+36194
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+9.7
+</td>
+<td style="text-align:right;">
+16.1
+</td>
+<td style="text-align:right;">
+63
+</td>
+<td style="text-align:right;">
+1021
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+1.5
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+22-07-16
+</td>
+<td style="text-align:right;">
+36401
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+20.3
+</td>
+<td style="text-align:right;">
+72
+</td>
+<td style="text-align:right;">
+1018
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+0.5
+</td>
+<td style="text-align:left;">
+TRUE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+</tr>
+</tbody>
+</table>
+<p>From what we can analyse in this dataset, the column <code>date</code> has a <code>char</code> variable, not a date. This will give us problems when trying to plot results or extract insights. At the same time, we can see many <code>NA</code> values in most of the variables. At the end of the data frame, we can spot 4 columns with <code>boolean</code> or <code>logical</code> data structure.</p>
+<p>We will create a column called <code>id</code> to identify the records. We will also convert the <code>date</code> column into <code>date()</code> format and add a few other columns about the dates. We also want to convert the <code>season</code> from a numerical variable into a categorical variable. For this purpose, we will convert it into a factor and order it in the levels of: <code>winter</code>, <code>spring</code>, <code>summer</code> and <code>autumn</code>.</p>
+<pre class="r"><code># Create new object
+bikes_cleaned &lt;- bikes%&gt;% 
+  # Insert new variables
+  mutate(
+    # Record number
+    id = row_number(),
+    # Change date format
+    date=dmy(date),
+    # Add year column
+    year=year(date),
+    # Add month column (number)
+    month = month(date),
+    # Add month column (name)
+    month_name=month(date, label = TRUE),
+    # Add day
+    day = wday(date, week_start = 1),
+    # Add day of the week
+    day_of_week = wday(date, label = TRUE,week_start = 1),
+    # need to mutate (or turn) seasons from numbers to Winter, Spring, etc
+    season_name = case_when(
+      season == 1 ~ &quot;Winter&quot;,
+      season == 2 ~ &quot;Spring&quot;,
+      season == 3 ~ &quot;Summer&quot;,
+      season == 4 ~ &quot;Autumn&quot;
+    ),
+    season_name = fct_relevel(season_name, &quot;Winter&quot;, &quot;Spring&quot;, &quot;Summer&quot;, &quot;Autumn&quot;)
+  ) %&gt;% 
+  # Filter by year 2020
+  filter(year&lt;2020)</code></pre>
+</div>
+<div id="exploratory-data-analysis" class="section level1">
+<h1>Exploratory Data Analysis</h1>
+<p>In this section we will try to understand how our dataset is composed and extract different insights</p>
+<div id="distribution-of-a-variable" class="section level2">
+<h2>Distribution of a variable</h2>
+<p>Since we want to predict the number of hirings, our variable of interest will be <code>bikes_hired</code>. Let’s now take a look at it and see how it relates to other variables.</p>
+<pre class="r"><code>bikes_cleaned %&gt;% select(bikes_hired) %&gt;% skim()</code></pre>
+<table style='width: auto;'
+        class='table table-condensed'>
+<caption>
+(#tab:skim_bikes_cleaned)Data summary
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:left;">
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Name
+</td>
+<td style="text-align:left;">
+Piped data
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Number of rows
+</td>
+<td style="text-align:left;">
+3287
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Number of columns
+</td>
+<td style="text-align:left;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+_______________________
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Column type frequency:
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+________________________
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Group variables
+</td>
+<td style="text-align:left;">
+None
+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+skim_variable
+</th>
+<th style="text-align:right;">
+n_missing
+</th>
+<th style="text-align:right;">
+complete_rate
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+p0
+</th>
+<th style="text-align:right;">
+p25
+</th>
+<th style="text-align:right;">
+p50
+</th>
+<th style="text-align:right;">
+p75
+</th>
+<th style="text-align:right;">
+p100
+</th>
+<th style="text-align:left;">
+hist
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+bikes_hired
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+26268.67
+</td>
+<td style="text-align:right;">
+9003.87
+</td>
+<td style="text-align:right;">
+3531
+</td>
+<td style="text-align:right;">
+19892.5
+</td>
+<td style="text-align:right;">
+26131
+</td>
+<td style="text-align:right;">
+32960
+</td>
+<td style="text-align:right;">
+73094
+</td>
+<td style="text-align:left;">
+▂▇▅▁▁
+</td>
+</tr>
+</tbody>
+</table>
+<p>It looks the average bikes_hired per year was about 26269. Let’s plot the distribution of our variable of interest.</p>
+<pre class="r"><code>hired_dist &lt;- ggplot(bikes_cleaned, aes(bikes_hired)) +
+  geom_histogram(color=&#39;white&#39;, bins=20, fill=&#39;steelblue&#39;) +
+  # Add labels
+  labs(title=&quot;Distribution of bikes hired&quot;,
+       subtitle = &quot;Figure 1.1&quot;,
+       x = &quot;Bikes hired&quot;,
+       y= &quot;Count&quot;,
+       caption = &quot;Source: Bikes Hired in London 2011-2020&quot;) +
+  
+  xlim(breaks= c(0,50000)) +
+  theme_bw()
+
+plot(hired_dist)</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/plot_bikes_hired-1.png" width="672" /></p>
+<p>Our variable <code>bikes_hired</code> follows a fairly normal distribution with a mean of 26269, SD of 9004 and a median of 26131. This is good news, as we can analyse the mean of the variable to proceed with our analysis.</p>
+</div>
+<div id="time-series-analysis" class="section level2">
+<h2>Time Series Analysis</h2>
+<p>What seasons of the year have the most hirings? We can analyse this data with a <code>boxplot</code>.</p>
+<pre class="r"><code>ggplot(bikes_cleaned, aes(reorder(season_name, -bikes_hired), bikes_hired)) +
+  geom_boxplot() +
+  
+  # Add labels
+  labs(title = &quot;Londoners prefer to bike on summer&quot;,
+       subtitle = &quot;Figure 1.2 | Seasonality on bike hirings in 2011-2019&quot;,
+       caption= &quot;Source: Bikes Hired in London 2011-2020&quot;,
+       y = &quot;Bikes hired&quot;,
+       x = &quot;Season&quot;)</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/boxplot_seasonality_1-1.png" width="672" /></p>
+<p>It seems that Summer is the preferred month by Londoners to rent a bike - not much of a surprise. Let’s drill down and analyse this by day of the week.</p>
+<pre class="r"><code>ggplot(bikes_cleaned, aes(reorder(day_of_week, -bikes_hired), bikes_hired)) +
+  geom_boxplot() +
+  
+  # Add labels
+  labs(title = &quot;Londoners prefer to bike on Wednesdays&quot;,
+       subtitle = &quot;Figure 1.3 | Seasonality on bike hirings in 2011-2019 - day of week&quot;,
+       caption= &quot;Source: Bikes Hired in London 2011-2020&quot;,
+       y = &quot;Bikes hired&quot;,
+       x = &quot;Season&quot;)</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/boxplot_seasonality-1.png" width="672" />
+As we can appreaciate in the plot, there are a few outliers. We can delve more into the data and see what happened during these days.</p>
+<p>What if we checked the hirings depending on the avg_temp, <strong>is there a correlation?</strong> We can figure this out by building a scatterplot.</p>
+<pre class="r"><code># Create ggplot object
+ggplot(bikes_cleaned, aes(avg_temp,
+                          bikes_hired)) +
+  # Add scatterplot
+  geom_point() +
+  # Add line
+  geom_smooth(method=&#39;lm&#39;, se=FALSE) +
+  
+  facet_wrap(~season_name) +
+  
+  # Add labels
+  
+  labs(title = &quot;Londoners love to bike on high temperatures&quot;,
+       subtitle = &quot;Figure 1.4&quot;,
+       x = &quot;Average temperature&quot;,
+       y = &quot;Bikes hired&quot;,
+       caption= &quot;Source: Bikes Hired in London 2011-2020&quot;)</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/bikes_corrlation-1.png" width="672" />
+It is clear by our graphs that Londoners (or tourists) do prefer to bike in higher temperatures. This is correlated with the <code>season_name</code> - as we can appreciate, we can find more points to the top right on Spring and Summer, and not so many there on Autumn and Winter.</p>
+</div>
+<div id="hypothesis-test" class="section level2">
+<h2>Hypothesis test</h2>
+<p>Let’s find out whether there is a significant difference in the population means of Spring and Summer.</p>
+<p><strong>H0</strong>: There is no difference in the means of hirings between Spring and Summer.
+<strong>H1</strong>: There is a difference in the means of hirings between Spring and Summer.</p>
+<p>First we will build 95% confidence intervals for the sample means of Spring and Summer and check whether they actually overlap.</p>
+<pre class="r"><code># Build dataframe
+spring_summer&lt;- bikes_cleaned %&gt;%
+  # Filter by summer/spring
+  filter(season_name %in% c(&quot;Spring&quot;,
+                            &quot;Summer&quot;)
+         ) %&gt;%
+  # Group by season name
+  group_by(season_name) %&gt;%
+  # Summary statistics
+  summarise(
+    # Mean
+    mean = mean(bikes_hired),
+    # SD of sample
+    sd = sd(bikes_hired),
+    # Count
+    count = n(),
+    # SE
+    se = sd/sqrt(count),
+    # Since we don&#39;t know the SD of the population, we will use the t distribution
+    t_critical = qt(0.975, count-1),
+    # Lower CI
+    lower = mean - t_critical*se,
+    # Upper CI
+    upper = mean + t_critical*se
+  ) %&gt;%
+  
+  select(season_name, lower, mean, upper, se, count, sd,t_critical)</code></pre>
+<pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
+<pre class="r"><code># Show results
+spring_summer %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+season_name
+</th>
+<th style="text-align:right;">
+lower
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+upper
+</th>
+<th style="text-align:right;">
+se
+</th>
+<th style="text-align:right;">
+count
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+t_critical
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Spring
+</td>
+<td style="text-align:right;">
+27623.66
+</td>
+<td style="text-align:right;">
+28157.06
+</td>
+<td style="text-align:right;">
+28690.47
+</td>
+<td style="text-align:right;">
+271.7523
+</td>
+<td style="text-align:right;">
+829
+</td>
+<td style="text-align:right;">
+7824.390
+</td>
+<td style="text-align:right;">
+1.962833
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Summer
+</td>
+<td style="text-align:right;">
+32648.53
+</td>
+<td style="text-align:right;">
+33184.07
+</td>
+<td style="text-align:right;">
+33719.62
+</td>
+<td style="text-align:right;">
+272.8435
+</td>
+<td style="text-align:right;">
+827
+</td>
+<td style="text-align:right;">
+7846.326
+</td>
+<td style="text-align:right;">
+1.962840
+</td>
+</tr>
+</tbody>
+</table>
+<p>Our confidence intervals do not overlap. Clearly, there is a difference between spring and summer - the difference in population means in summer is greater than that of Spring.</p>
+<p>Although our results are clear enough, we could try using other methods. This is how we would do it using a <code>t-test</code></p>
+<pre class="r"><code>spring_summer_test&lt;-bikes_cleaned %&gt;%
+  filter(season_name %in% c(&quot;Summer&quot;,&quot;Spring&quot;)) %&gt;%
+  select(season_name, bikes_hired)
+  
+t.test(bikes_hired~season_name, spring_summer_test)</code></pre>
+<pre><code>## 
+##  Welch Two Sample t-test
+## 
+## data:  bikes_hired by season_name
+## t = -13.054, df = 1654, p-value &lt; 2.2e-16
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -5782.324 -4271.701
+## sample estimates:
+## mean in group Spring mean in group Summer 
+##             28157.06             33184.07</code></pre>
+<p>As expected, out t-stat is &lt;-2 and our p-value is less than 5% - that means, the difference is significant enough.</p>
+<p>Finally, if we wanted to use bootstrap using <code>infer</code>, we would do it the following way. First, we need to initialise the test.</p>
+<pre class="r"><code>library(infer)
+# Save object in obs diff
+obs_diff&lt;- spring_summer_test %&gt;%
+  # Specify vars
+  specify(bikes_hired ~ season_name) %&gt;%
+  # Calculate
+  calculate(stat = &quot;diff in means&quot;, order=c(&quot;Summer&quot;,&quot;Spring&quot;))</code></pre>
+<p>Now, we can simulate our test in the null distribution.</p>
+<pre class="r"><code># Create new object
+null_dist &lt;- spring_summer_test %&gt;%
+  # Specify variables
+  specify(bikes_hired ~ season_name) %&gt;%
+  # hypothesize - where we can our variable to set the null - in this case, no difference in bikes_hired
+  hypothesize(null = &quot;independence&quot;) %&gt;%
+  # Number of reps and permute as type
+  generate(reps = 1000, type = &quot;permute&quot;) %&gt;%
+  # Calculate diff in means
+  calculate(stat = &quot;diff in means&quot;, order = c(&quot;Summer&quot;, &quot;Spring&quot;))</code></pre>
+<p>Here, <code>hypothesize</code> is used to set the null hypothesis as a test for independence, i.e., that there is no difference between the two population means. In one sample cases, the null argument can be set to point to test a hypothesis relative to a point estimate.</p>
+<p>Also, note that the type argument within generate is set to <code>permute</code>, which is the argument when generating a null distribution for a hypothesis test.</p>
+<p>We can visualize this null distribution with the following code:</p>
+<pre class="r"><code># Plot distribution
+ggplot(data = null_dist, aes(x = stat)) +
+  geom_histogram(color=&#39;white&#39;) +
+  # Add labels
+  labs(title=&quot;A normal distributed variable&quot;,
+        subtitle = &quot;Figure 1.5&quot;,
+        caption= &quot;Source: Bikes Hired in London 2011-2020&quot;)</code></pre>
+<pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/plot_distribution_test-1.png" width="672" />
+Now that the test is initialized and the null distribution formed, we can visualise to see how many of these null permutations have a difference of at least obs_stat of 1.77.</p>
+<p>Basically, what we are doing here is simulating a world in which our null value works, and see how our previous observation (difference in means) fits here. If the results is suprising (which we expect it to be), we can go ahead and reject the null hypothesis that there are no difference in the population means from <code>bikes_hired</code> in London between Summer and Spring.</p>
+<p>We can also calculate the p-value for the hypothesis test using the function <code>infer::get_p_value()</code>.</p>
+<pre class="r"><code>null_dist %&gt;% visualize() +
+  shade_p_value(obs_stat = obs_diff, direction = &quot;two-sided&quot;)</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/visualise-1.png" width="672" /></p>
+<p>The results are clear; there is a statistical significance in the difference of means of <code>bikes_hired</code> between Summer and Spring. We can reject the null hypothesis.</p>
+</div>
+</div>
+<div id="build-models" class="section level1">
+<h1>Build models</h1>
+<p>Let’s try to fit our model. As our variable of interest is <code>bikes_hired</code>, we want to explore the correlation with other possible variables in the dataset.</p>
+<div id="out-of-sample" class="section level2">
+<h2>Out of sample</h2>
+<p>We will split our dataset into <code>training</code> and <code>testing</code> using the library <code>rsample</code>. The division will be of 70/30.</p>
+<pre class="r"><code># For reproducibility, set seed - we always get the same split
+set.seed(1234)
+# Save into object with 30/70
+test_train_split &lt;- initial_split(bikes_cleaned, prop=0.70)
+# train dataset
+bikes_train&lt;- training(test_train_split)
+# testing dataset
+bikes_test&lt;- testing(test_train_split)</code></pre>
+</div>
+<div id="model-1" class="section level2">
+<h2>Model 1</h2>
+<p>We will first establish our model with the variable of interest</p>
+<pre class="r"><code>model1 &lt;- lm(bikes_hired ~1, bikes_train)
+
+
+tidy(model1) %&gt;%kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+term
+</th>
+<th style="text-align:right;">
+estimate
+</th>
+<th style="text-align:right;">
+std.error
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+(Intercept)
+</td>
+<td style="text-align:right;">
+26369.35
+</td>
+<td style="text-align:right;">
+187.3181
+</td>
+<td style="text-align:right;">
+140.7731
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>glance(model1) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+r.squared
+</th>
+<th style="text-align:right;">
+adj.r.squared
+</th>
+<th style="text-align:right;">
+sigma
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+<th style="text-align:right;">
+df
+</th>
+<th style="text-align:right;">
+logLik
+</th>
+<th style="text-align:right;">
+AIC
+</th>
+<th style="text-align:right;">
+BIC
+</th>
+<th style="text-align:right;">
+deviance
+</th>
+<th style="text-align:right;">
+df.residual
+</th>
+<th style="text-align:right;">
+nobs
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+8985.414
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-24211.3
+</td>
+<td style="text-align:right;">
+48426.61
+</td>
+<td style="text-align:right;">
+48438.09
+</td>
+<td style="text-align:right;">
+185696611675
+</td>
+<td style="text-align:right;">
+2300
+</td>
+<td style="text-align:right;">
+2301
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>anova(model1) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Df
+</th>
+<th style="text-align:right;">
+Sum Sq
+</th>
+<th style="text-align:right;">
+Mean Sq
+</th>
+<th style="text-align:right;">
+F value
+</th>
+<th style="text-align:right;">
+Pr(&gt;F)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Residuals
+</td>
+<td style="text-align:right;">
+2300
+</td>
+<td style="text-align:right;">
+185696611675
+</td>
+<td style="text-align:right;">
+80737657
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
+<p>In our first model, we get an estimate on the intercept that equals the mean. Since this variable follows a normal distribution, the std error was the SD of the sample/sqrt(n).</p>
+</div>
+<div id="model-2" class="section level2">
+<h2>Model 2</h2>
+<p>Let’s include another variable to analyse this. The <code>id</code> of bikes.</p>
+<pre class="r"><code>model2 &lt;- lm(bikes_hired ~ id, bikes_train)
+
+tidy(model2) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+term
+</th>
+<th style="text-align:right;">
+estimate
+</th>
+<th style="text-align:right;">
+std.error
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+(Intercept)
+</td>
+<td style="text-align:right;">
+21700.42356
+</td>
+<td style="text-align:right;">
+362.3106098
+</td>
+<td style="text-align:right;">
+59.89453
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+2.80791
+</td>
+<td style="text-align:right;">
+0.1894444
+</td>
+<td style="text-align:right;">
+14.82181
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>glance(model2)%&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+r.squared
+</th>
+<th style="text-align:right;">
+adj.r.squared
+</th>
+<th style="text-align:right;">
+sigma
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+<th style="text-align:right;">
+df
+</th>
+<th style="text-align:right;">
+logLik
+</th>
+<th style="text-align:right;">
+AIC
+</th>
+<th style="text-align:right;">
+BIC
+</th>
+<th style="text-align:right;">
+deviance
+</th>
+<th style="text-align:right;">
+df.residual
+</th>
+<th style="text-align:right;">
+nobs
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.0872225
+</td>
+<td style="text-align:right;">
+0.0868255
+</td>
+<td style="text-align:right;">
+8586.476
+</td>
+<td style="text-align:right;">
+219.6861
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-24106.31
+</td>
+<td style="text-align:right;">
+48218.61
+</td>
+<td style="text-align:right;">
+48235.83
+</td>
+<td style="text-align:right;">
+169499689487
+</td>
+<td style="text-align:right;">
+2299
+</td>
+<td style="text-align:right;">
+2301
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>anova(model2)%&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Df
+</th>
+<th style="text-align:right;">
+Sum Sq
+</th>
+<th style="text-align:right;">
+Mean Sq
+</th>
+<th style="text-align:right;">
+F value
+</th>
+<th style="text-align:right;">
+Pr(&gt;F)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+16196922187
+</td>
+<td style="text-align:right;">
+16196922187
+</td>
+<td style="text-align:right;">
+219.6861
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Residuals
+</td>
+<td style="text-align:right;">
+2299
+</td>
+<td style="text-align:right;">
+169499689487
+</td>
+<td style="text-align:right;">
+73727573
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
+<p>In our first model we included the <code>id</code> row. As it can be seen, this value seems to be significant enough: the t-statistic is 17.5 (far bigger than 2). The coefficient of 2.8 means that, for every increase in the id number, the number of bikes hired will increase on average 2.8. Our R^2 is, however, just 8%. That means our model only explains 8% of the variability. With this much uncertainty, we might as well just take a look at the mean.</p>
+<p>We will keep adding significant variables to improve our R^2 and then train our model.</p>
+</div>
+<div id="model-3" class="section level2">
+<h2>Model 3</h2>
+<p>Previously, we proved that <code>season_name</code> could be a significant predictor of our outcome variables <code>bikes_hired</code>. Let’s include in our model.</p>
+<pre class="r"><code>model3 &lt;- lm (bikes_hired ~ id + season_name, data = bikes_train)
+
+
+tidy(model3) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+term
+</th>
+<th style="text-align:right;">
+estimate
+</th>
+<th style="text-align:right;">
+std.error
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+(Intercept)
+</td>
+<td style="text-align:right;">
+14880.346697
+</td>
+<td style="text-align:right;">
+376.2409293
+</td>
+<td style="text-align:right;">
+39.55005
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+2.511149
+</td>
+<td style="text-align:right;">
+0.1531317
+</td>
+<td style="text-align:right;">
+16.39862
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSpring
+</td>
+<td style="text-align:right;">
+9377.185546
+</td>
+<td style="text-align:right;">
+411.8674228
+</td>
+<td style="text-align:right;">
+22.76749
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSummer
+</td>
+<td style="text-align:right;">
+13997.983437
+</td>
+<td style="text-align:right;">
+410.9903551
+</td>
+<td style="text-align:right;">
+34.05915
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameAutumn
+</td>
+<td style="text-align:right;">
+5453.093904
+</td>
+<td style="text-align:right;">
+411.5595133
+</td>
+<td style="text-align:right;">
+13.24983
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>glance(model3) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+r.squared
+</th>
+<th style="text-align:right;">
+adj.r.squared
+</th>
+<th style="text-align:right;">
+sigma
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+<th style="text-align:right;">
+df
+</th>
+<th style="text-align:right;">
+logLik
+</th>
+<th style="text-align:right;">
+AIC
+</th>
+<th style="text-align:right;">
+BIC
+</th>
+<th style="text-align:right;">
+deviance
+</th>
+<th style="text-align:right;">
+df.residual
+</th>
+<th style="text-align:right;">
+nobs
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.4100857
+</td>
+<td style="text-align:right;">
+0.409058
+</td>
+<td style="text-align:right;">
+6907.335
+</td>
+<td style="text-align:right;">
+399.0227
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+-23604.1
+</td>
+<td style="text-align:right;">
+47220.19
+</td>
+<td style="text-align:right;">
+47254.64
+</td>
+<td style="text-align:right;">
+109545081501
+</td>
+<td style="text-align:right;">
+2296
+</td>
+<td style="text-align:right;">
+2301
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>anova(model3) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Df
+</th>
+<th style="text-align:right;">
+Sum Sq
+</th>
+<th style="text-align:right;">
+Mean Sq
+</th>
+<th style="text-align:right;">
+F value
+</th>
+<th style="text-align:right;">
+Pr(&gt;F)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+16196922187
+</td>
+<td style="text-align:right;">
+16196922187
+</td>
+<td style="text-align:right;">
+339.4779
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_name
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+59954607987
+</td>
+<td style="text-align:right;">
+19984869329
+</td>
+<td style="text-align:right;">
+418.8710
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Residuals
+</td>
+<td style="text-align:right;">
+2296
+</td>
+<td style="text-align:right;">
+109545081501
+</td>
+<td style="text-align:right;">
+47711272
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
+<p>Our R^2 increased to 40% and all the variables seem to be significant enough. The intercept seems to be Winter, being this probably the season in which the hirings are at their lowest. Since <code>season_name</code> is a categorical value, we know that each <code>k</code> is associated with a binary <code>x</code>. e.g If the season is <code>Summer</code>, our formula would look as follows:</p>
+<p>bikes_hired = 14880 + 2.5* id + 13997* Summer * 1 + 9337 * Spring * 0 + 5433 * Autumn * 0</p>
+<p>bikes_hired = 14880 + 2.5 * id + 13997</p>
+<p>In this scenario, the variables <code>summer</code>, <code>autumn</code> would not work, because they’d be multiplied by 0. The reason why winter remains as the intercept is because the avg number of <code>bikes_hired</code> is lower than those of summer. That means, our model is that that as the lowest point where we could start, and any other season will have a greater number of hirings.</p>
+</div>
+<div id="model-4" class="section level2">
+<h2>Model 4</h2>
+<p>Previously we saw an impact in day of the week hirings and months. Let’s understand whether these are significant predictors in our model</p>
+<pre class="r"><code>model4 &lt;- lm (bikes_hired ~ id + season_name + factor(day) + factor(month), data = bikes_train)
+
+tidy(model4) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+term
+</th>
+<th style="text-align:right;">
+estimate
+</th>
+<th style="text-align:right;">
+std.error
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+(Intercept)
+</td>
+<td style="text-align:right;">
+14787.907638
+</td>
+<td style="text-align:right;">
+541.2475906
+</td>
+<td style="text-align:right;">
+27.321891
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+2.599103
+</td>
+<td style="text-align:right;">
+0.1279422
+</td>
+<td style="text-align:right;">
+20.314664
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSpring
+</td>
+<td style="text-align:right;">
+3057.721160
+</td>
+<td style="text-align:right;">
+729.6315029
+</td>
+<td style="text-align:right;">
+4.190775
+</td>
+<td style="text-align:right;">
+0.0000289
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSummer
+</td>
+<td style="text-align:right;">
+5613.153722
+</td>
+<td style="text-align:right;">
+871.6601111
+</td>
+<td style="text-align:right;">
+6.439613
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameAutumn
+</td>
+<td style="text-align:right;">
+6025.696761
+</td>
+<td style="text-align:right;">
+762.3748278
+</td>
+<td style="text-align:right;">
+7.903851
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)2
+</td>
+<td style="text-align:right;">
+1846.909570
+</td>
+<td style="text-align:right;">
+446.3255923
+</td>
+<td style="text-align:right;">
+4.138032
+</td>
+<td style="text-align:right;">
+0.0000363
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)3
+</td>
+<td style="text-align:right;">
+1932.686835
+</td>
+<td style="text-align:right;">
+448.2889263
+</td>
+<td style="text-align:right;">
+4.311253
+</td>
+<td style="text-align:right;">
+0.0000169
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)4
+</td>
+<td style="text-align:right;">
+1750.042043
+</td>
+<td style="text-align:right;">
+449.7554186
+</td>
+<td style="text-align:right;">
+3.891097
+</td>
+<td style="text-align:right;">
+0.0001027
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)5
+</td>
+<td style="text-align:right;">
+669.646979
+</td>
+<td style="text-align:right;">
+440.7005505
+</td>
+<td style="text-align:right;">
+1.519506
+</td>
+<td style="text-align:right;">
+0.1287740
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)6
+</td>
+<td style="text-align:right;">
+-3877.050001
+</td>
+<td style="text-align:right;">
+445.6426822
+</td>
+<td style="text-align:right;">
+-8.699907
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)7
+</td>
+<td style="text-align:right;">
+-5438.900792
+</td>
+<td style="text-align:right;">
+447.7868343
+</td>
+<td style="text-align:right;">
+-12.146183
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)2
+</td>
+<td style="text-align:right;">
+1141.587801
+</td>
+<td style="text-align:right;">
+611.2932999
+</td>
+<td style="text-align:right;">
+1.867496
+</td>
+<td style="text-align:right;">
+0.0619606
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)3
+</td>
+<td style="text-align:right;">
+3060.918455
+</td>
+<td style="text-align:right;">
+636.8013975
+</td>
+<td style="text-align:right;">
+4.806708
+</td>
+<td style="text-align:right;">
+0.0000016
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)4
+</td>
+<td style="text-align:right;">
+5011.290752
+</td>
+<td style="text-align:right;">
+939.1290770
+</td>
+<td style="text-align:right;">
+5.336104
+</td>
+<td style="text-align:right;">
+0.0000001
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)5
+</td>
+<td style="text-align:right;">
+8140.326212
+</td>
+<td style="text-align:right;">
+939.1270485
+</td>
+<td style="text-align:right;">
+8.667971
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)6
+</td>
+<td style="text-align:right;">
+9864.031179
+</td>
+<td style="text-align:right;">
+918.1249462
+</td>
+<td style="text-align:right;">
+10.743670
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)7
+</td>
+<td style="text-align:right;">
+10437.320190
+</td>
+<td style="text-align:right;">
+1057.4844550
+</td>
+<td style="text-align:right;">
+9.869951
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)8
+</td>
+<td style="text-align:right;">
+8273.128669
+</td>
+<td style="text-align:right;">
+1051.2840047
+</td>
+<td style="text-align:right;">
+7.869547
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)9
+</td>
+<td style="text-align:right;">
+6299.469045
+</td>
+<td style="text-align:right;">
+962.3576283
+</td>
+<td style="text-align:right;">
+6.545871
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)10
+</td>
+<td style="text-align:right;">
+2806.371469
+</td>
+<td style="text-align:right;">
+961.9993653
+</td>
+<td style="text-align:right;">
+2.917228
+</td>
+<td style="text-align:right;">
+0.0035661
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)11
+</td>
+<td style="text-align:right;">
+-1838.607500
+</td>
+<td style="text-align:right;">
+969.5565403
+</td>
+<td style="text-align:right;">
+-1.896339
+</td>
+<td style="text-align:right;">
+0.0580416
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)12
+</td>
+<td style="text-align:right;">
+-5495.465578
+</td>
+<td style="text-align:right;">
+791.8131231
+</td>
+<td style="text-align:right;">
+-6.940357
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>glance(model4) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+r.squared
+</th>
+<th style="text-align:right;">
+adj.r.squared
+</th>
+<th style="text-align:right;">
+sigma
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+<th style="text-align:right;">
+df
+</th>
+<th style="text-align:right;">
+logLik
+</th>
+<th style="text-align:right;">
+AIC
+</th>
+<th style="text-align:right;">
+BIC
+</th>
+<th style="text-align:right;">
+deviance
+</th>
+<th style="text-align:right;">
+df.residual
+</th>
+<th style="text-align:right;">
+nobs
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.5942497
+</td>
+<td style="text-align:right;">
+0.5905108
+</td>
+<td style="text-align:right;">
+5749.887
+</td>
+<td style="text-align:right;">
+158.9407
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+21
+</td>
+<td style="text-align:right;">
+-23173.53
+</td>
+<td style="text-align:right;">
+46393.07
+</td>
+<td style="text-align:right;">
+46525.11
+</td>
+<td style="text-align:right;">
+75346463588
+</td>
+<td style="text-align:right;">
+2279
+</td>
+<td style="text-align:right;">
+2301
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>anova(model4) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Df
+</th>
+<th style="text-align:right;">
+Sum Sq
+</th>
+<th style="text-align:right;">
+Mean Sq
+</th>
+<th style="text-align:right;">
+F value
+</th>
+<th style="text-align:right;">
+Pr(&gt;F)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+16196922187
+</td>
+<td style="text-align:right;">
+16196922187
+</td>
+<td style="text-align:right;">
+489.90734
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_name
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+59954607987
+</td>
+<td style="text-align:right;">
+19984869329
+</td>
+<td style="text-align:right;">
+604.48115
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+17624413132
+</td>
+<td style="text-align:right;">
+2937402189
+</td>
+<td style="text-align:right;">
+88.84743
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(month)
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:right;">
+16574204781
+</td>
+<td style="text-align:right;">
+1506745889
+</td>
+<td style="text-align:right;">
+45.57445
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Residuals
+</td>
+<td style="text-align:right;">
+2279
+</td>
+<td style="text-align:right;">
+75346463588
+</td>
+<td style="text-align:right;">
+33061195
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
+<p>It looks like these indeed make a difference. However, months are related to season names, which also proved to be significant predictors in our model. Including both might mean we are at risk of multi-collinearity. We can check this by doing a <code>Variance Factor Inflation</code>.</p>
+<pre class="r"><code>car::vif(model4)</code></pre>
+<pre><code>##                     GVIF Df GVIF^(1/(2*Df))
+## id              1.017127  1        1.008527
+## season_name   143.222946  3        2.287365
+## factor(day)     1.013423  6        1.001112
+## factor(month) 145.019655 11        1.253853</code></pre>
+<p>Following the rule, if the vif is &gt;5, then we can assume there is multi-collinearity. Indeed, in this case, the <code>season_name</code> and the <code>month</code> are highly correlated. We will remove the <code>month</code> factor and keep the season name in this model.</p>
+<div id="model-5" class="section level3">
+<h3>Model 5</h3>
+<p>After removing the month factor, we want to understand the impact of the <code>avg_temp</code> in our model.</p>
+<pre class="r"><code>model5 &lt;- lm (bikes_hired ~ id + season_name + factor(day) + avg_temp, data = bikes_train)
+
+tidy(model5) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+term
+</th>
+<th style="text-align:right;">
+estimate
+</th>
+<th style="text-align:right;">
+std.error
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+(Intercept)
+</td>
+<td style="text-align:right;">
+10113.275325
+</td>
+<td style="text-align:right;">
+457.966527
+</td>
+<td style="text-align:right;">
+22.083001
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+2.345881
+</td>
+<td style="text-align:right;">
+0.123789
+</td>
+<td style="text-align:right;">
+18.950647
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSpring
+</td>
+<td style="text-align:right;">
+3934.266628
+</td>
+<td style="text-align:right;">
+391.905375
+</td>
+<td style="text-align:right;">
+10.038818
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSummer
+</td>
+<td style="text-align:right;">
+3747.521075
+</td>
+<td style="text-align:right;">
+506.665247
+</td>
+<td style="text-align:right;">
+7.396444
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameAutumn
+</td>
+<td style="text-align:right;">
+2035.978067
+</td>
+<td style="text-align:right;">
+355.522954
+</td>
+<td style="text-align:right;">
+5.726713
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)2
+</td>
+<td style="text-align:right;">
+1787.262571
+</td>
+<td style="text-align:right;">
+434.117755
+</td>
+<td style="text-align:right;">
+4.117000
+</td>
+<td style="text-align:right;">
+0.0000398
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)3
+</td>
+<td style="text-align:right;">
+1812.519273
+</td>
+<td style="text-align:right;">
+436.075743
+</td>
+<td style="text-align:right;">
+4.156432
+</td>
+<td style="text-align:right;">
+0.0000335
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)4
+</td>
+<td style="text-align:right;">
+1545.894172
+</td>
+<td style="text-align:right;">
+437.665522
+</td>
+<td style="text-align:right;">
+3.532136
+</td>
+<td style="text-align:right;">
+0.0004205
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)5
+</td>
+<td style="text-align:right;">
+562.355049
+</td>
+<td style="text-align:right;">
+428.323754
+</td>
+<td style="text-align:right;">
+1.312920
+</td>
+<td style="text-align:right;">
+0.1893426
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)6
+</td>
+<td style="text-align:right;">
+-4053.296859
+</td>
+<td style="text-align:right;">
+433.818217
+</td>
+<td style="text-align:right;">
+-9.343307
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)7
+</td>
+<td style="text-align:right;">
+-5376.885851
+</td>
+<td style="text-align:right;">
+435.254685
+</td>
+<td style="text-align:right;">
+-12.353424
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_temp
+</td>
+<td style="text-align:right;">
+880.123218
+</td>
+<td style="text-align:right;">
+33.512967
+</td>
+<td style="text-align:right;">
+26.262170
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>glance(model5) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+r.squared
+</th>
+<th style="text-align:right;">
+adj.r.squared
+</th>
+<th style="text-align:right;">
+sigma
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+<th style="text-align:right;">
+df
+</th>
+<th style="text-align:right;">
+logLik
+</th>
+<th style="text-align:right;">
+AIC
+</th>
+<th style="text-align:right;">
+BIC
+</th>
+<th style="text-align:right;">
+deviance
+</th>
+<th style="text-align:right;">
+df.residual
+</th>
+<th style="text-align:right;">
+nobs
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.6201397
+</td>
+<td style="text-align:right;">
+0.6182965
+</td>
+<td style="text-align:right;">
+5566.289
+</td>
+<td style="text-align:right;">
+336.453
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:right;">
+-22882.94
+</td>
+<td style="text-align:right;">
+45791.89
+</td>
+<td style="text-align:right;">
+45866.4
+</td>
+<td style="text-align:right;">
+70239772640
+</td>
+<td style="text-align:right;">
+2267
+</td>
+<td style="text-align:right;">
+2279
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>anova(model5) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Df
+</th>
+<th style="text-align:right;">
+Sum Sq
+</th>
+<th style="text-align:right;">
+Mean Sq
+</th>
+<th style="text-align:right;">
+F value
+</th>
+<th style="text-align:right;">
+Pr(&gt;F)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+16369850784
+</td>
+<td style="text-align:right;">
+16369850784
+</td>
+<td style="text-align:right;">
+528.33958
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_name
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+59617902933
+</td>
+<td style="text-align:right;">
+19872634311
+</td>
+<td style="text-align:right;">
+641.39248
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+17312517576
+</td>
+<td style="text-align:right;">
+2885419596
+</td>
+<td style="text-align:right;">
+93.12738
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_temp
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+21369422257
+</td>
+<td style="text-align:right;">
+21369422257
+</td>
+<td style="text-align:right;">
+689.70155
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Residuals
+</td>
+<td style="text-align:right;">
+2267
+</td>
+<td style="text-align:right;">
+70239772640
+</td>
+<td style="text-align:right;">
+30983579
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
+<p>Our R^2 improved to 61%. Our new variable <code>avg_temp</code> is signficant enough, with a t-stat of 30. For an increase of one unit in the average temperature, hirings will go up by 880.</p>
+<p>However, <code>avg_temp</code> might, again, be highly correlated with the <code>season_name</code>. Let’s see this again</p>
+<pre class="r"><code>vif(model5)</code></pre>
+<pre><code>##                 GVIF Df GVIF^(1/(2*Df))
+## id          1.013729  1        1.006841
+## season_name 2.448539  3        1.160962
+## factor(day) 1.006197  6        1.000515
+## avg_temp    2.437133  1        1.561132</code></pre>
+<p>Our <code>Variance Factor Inflation</code> tells us that we are at no risk of multi-collinearity. That means, we can keep these variables and our model shows a solid R^2 of 61%.</p>
+</div>
+<div id="model-6" class="section level3">
+<h3>Model 6</h3>
+<p>Let’s keep adding weather-related variables, as these proved to be significant enough so far. This time, we want to see the impact of <code>avg_humidity</code>, <code>avg_pressure</code>, <code>avg_windspeed</code> and <code>rainfall_mm</code>.</p>
+<pre class="r"><code>model6 &lt;- lm (bikes_hired ~ id + season_name + factor(day) + avg_temp + avg_humidity + avg_pressure + avg_windspeed + rainfall_mm, data = bikes_train)
+
+tidy(model6) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+term
+</th>
+<th style="text-align:right;">
+estimate
+</th>
+<th style="text-align:right;">
+std.error
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+(Intercept)
+</td>
+<td style="text-align:right;">
+-9942.055719
+</td>
+<td style="text-align:right;">
+1.297025e+04
+</td>
+<td style="text-align:right;">
+-0.7665275
+</td>
+<td style="text-align:right;">
+0.4434621
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+3.159925
+</td>
+<td style="text-align:right;">
+1.362881e-01
+</td>
+<td style="text-align:right;">
+23.1856273
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSpring
+</td>
+<td style="text-align:right;">
+197.317663
+</td>
+<td style="text-align:right;">
+3.704071e+02
+</td>
+<td style="text-align:right;">
+0.5327048
+</td>
+<td style="text-align:right;">
+0.5943031
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameSummer
+</td>
+<td style="text-align:right;">
+1085.659033
+</td>
+<td style="text-align:right;">
+4.702442e+02
+</td>
+<td style="text-align:right;">
+2.3087133
+</td>
+<td style="text-align:right;">
+0.0210713
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_nameAutumn
+</td>
+<td style="text-align:right;">
+2459.246612
+</td>
+<td style="text-align:right;">
+3.302279e+02
+</td>
+<td style="text-align:right;">
+7.4471205
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)2
+</td>
+<td style="text-align:right;">
+1784.634563
+</td>
+<td style="text-align:right;">
+3.921319e+02
+</td>
+<td style="text-align:right;">
+4.5511081
+</td>
+<td style="text-align:right;">
+0.0000057
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)3
+</td>
+<td style="text-align:right;">
+1973.007517
+</td>
+<td style="text-align:right;">
+3.932369e+02
+</td>
+<td style="text-align:right;">
+5.0173505
+</td>
+<td style="text-align:right;">
+0.0000006
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)4
+</td>
+<td style="text-align:right;">
+2231.854381
+</td>
+<td style="text-align:right;">
+3.927682e+02
+</td>
+<td style="text-align:right;">
+5.6823702
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)5
+</td>
+<td style="text-align:right;">
+732.097794
+</td>
+<td style="text-align:right;">
+3.834421e+02
+</td>
+<td style="text-align:right;">
+1.9092787
+</td>
+<td style="text-align:right;">
+0.0563836
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)6
+</td>
+<td style="text-align:right;">
+-3389.903747
+</td>
+<td style="text-align:right;">
+3.932093e+02
+</td>
+<td style="text-align:right;">
+-8.6211179
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)7
+</td>
+<td style="text-align:right;">
+-4591.251883
+</td>
+<td style="text-align:right;">
+3.916617e+02
+</td>
+<td style="text-align:right;">
+-11.7224945
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_temp
+</td>
+<td style="text-align:right;">
+782.051694
+</td>
+<td style="text-align:right;">
+3.126059e+01
+</td>
+<td style="text-align:right;">
+25.0171790
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_humidity
+</td>
+<td style="text-align:right;">
+-288.078367
+</td>
+<td style="text-align:right;">
+1.268892e+01
+</td>
+<td style="text-align:right;">
+-22.7031414
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_pressure
+</td>
+<td style="text-align:right;">
+46.458400
+</td>
+<td style="text-align:right;">
+1.236386e+01
+</td>
+<td style="text-align:right;">
+3.7575970
+</td>
+<td style="text-align:right;">
+0.0001770
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_windspeed
+</td>
+<td style="text-align:right;">
+-289.692152
+</td>
+<td style="text-align:right;">
+1.963737e+01
+</td>
+<td style="text-align:right;">
+-14.7520833
+</td>
+<td style="text-align:right;">
+0.0000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rainfall_mm
+</td>
+<td style="text-align:right;">
+-69.786565
+</td>
+<td style="text-align:right;">
+3.038274e+01
+</td>
+<td style="text-align:right;">
+-2.2969147
+</td>
+<td style="text-align:right;">
+0.0217370
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>glance(model6) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+r.squared
+</th>
+<th style="text-align:right;">
+adj.r.squared
+</th>
+<th style="text-align:right;">
+sigma
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+<th style="text-align:right;">
+df
+</th>
+<th style="text-align:right;">
+logLik
+</th>
+<th style="text-align:right;">
+AIC
+</th>
+<th style="text-align:right;">
+BIC
+</th>
+<th style="text-align:right;">
+deviance
+</th>
+<th style="text-align:right;">
+df.residual
+</th>
+<th style="text-align:right;">
+nobs
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.7454227
+</td>
+<td style="text-align:right;">
+0.7433199
+</td>
+<td style="text-align:right;">
+4485.924
+</td>
+<td style="text-align:right;">
+354.4928
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+-17996.2
+</td>
+<td style="text-align:right;">
+36026.4
+</td>
+<td style="text-align:right;">
+36120.12
+</td>
+<td style="text-align:right;">
+36544297896
+</td>
+<td style="text-align:right;">
+1816
+</td>
+<td style="text-align:right;">
+1832
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>anova(model6) %&gt;% kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Df
+</th>
+<th style="text-align:right;">
+Sum Sq
+</th>
+<th style="text-align:right;">
+Mean Sq
+</th>
+<th style="text-align:right;">
+F value
+</th>
+<th style="text-align:right;">
+Pr(&gt;F)
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+id
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+12896756944
+</td>
+<td style="text-align:right;">
+12896756944
+</td>
+<td style="text-align:right;">
+640.880027
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+season_name
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+44426324455
+</td>
+<td style="text-align:right;">
+14808774818
+</td>
+<td style="text-align:right;">
+735.894151
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+factor(day)
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+11502520240
+</td>
+<td style="text-align:right;">
+1917086707
+</td>
+<td style="text-align:right;">
+95.266010
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_temp
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+17957518812
+</td>
+<td style="text-align:right;">
+17957518812
+</td>
+<td style="text-align:right;">
+892.365048
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_humidity
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+12550754008
+</td>
+<td style="text-align:right;">
+12550754008
+</td>
+<td style="text-align:right;">
+623.686063
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_pressure
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+3114063840
+</td>
+<td style="text-align:right;">
+3114063840
+</td>
+<td style="text-align:right;">
+154.747533
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avg_windspeed
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+4450499419
+</td>
+<td style="text-align:right;">
+4450499419
+</td>
+<td style="text-align:right;">
+221.159180
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rainfall_mm
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+106167972
+</td>
+<td style="text-align:right;">
+106167972
+</td>
+<td style="text-align:right;">
+5.275817
+</td>
+<td style="text-align:right;">
+0.021737
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Residuals
+</td>
+<td style="text-align:right;">
+1816
+</td>
+<td style="text-align:right;">
+36544297896
+</td>
+<td style="text-align:right;">
+20123512
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
+<p>All of our new variables seem to be significant enough, as all the statistic values are far greater or lower than 2 or -2 correspondingly. As a result, our model can now explain 75% of the variability.</p>
+<pre class="r"><code>vif(model6)</code></pre>
+<pre><code>##                   GVIF Df GVIF^(1/(2*Df))
+## id            1.008907  1        1.004444
+## season_name   3.242043  3        1.216568
+## factor(day)   1.019390  6        1.001602
+## avg_temp      2.540310  1        1.593835
+## avg_humidity  1.715256  1        1.309678
+## avg_pressure  1.425419  1        1.193909
+## avg_windspeed 1.322879  1        1.150165
+## rainfall_mm   1.185072  1        1.088610</code></pre>
+<p>It seems that the weather-related variables are not at high risk of multi-collinearity with the <code>season_name</code>. We can now proceed with our diagnostics.</p>
+</div>
+</div>
+</div>
+<div id="build-dignostics" class="section level1">
+<h1>Build dignostics</h1>
+<p>Let’s fit a huxtable to compare our models.</p>
+<pre class="r"><code>huxreg(model1, model2, model3, model4, model5, model6,
+       statistics = c(&#39;#observations&#39; = &#39;nobs&#39;, 
+                      &#39;R squared&#39; = &#39;r.squared&#39;, 
+                      &#39;Adj. R Squared&#39; = &#39;adj.r.squared&#39;, 
+                      &#39;Residual SE&#39; = &#39;sigma&#39;), 
+       bold_signif = 0.05, 
+       stars = NULL
+) %&gt;% 
+  set_caption(&#39;Comparison of models&#39;)</code></pre>
+<table class="huxtable" style="border-collapse: collapse; border: 0px; margin-bottom: 2em; margin-top: 2em; ; margin-left: auto; margin-right: auto;  " id="tab:huxtable">
+<caption style="caption-side: top; text-align: center;">Comparison of models</caption><col><col><col><col><col><col><col><tr>
+<th style="vertical-align: top; text-align: center; white-space: normal; border-style: solid solid solid solid; border-width: 0.8pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><th style="vertical-align: top; text-align: center; white-space: normal; border-style: solid solid solid solid; border-width: 0.8pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(1)</th><th style="vertical-align: top; text-align: center; white-space: normal; border-style: solid solid solid solid; border-width: 0.8pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(2)</th><th style="vertical-align: top; text-align: center; white-space: normal; border-style: solid solid solid solid; border-width: 0.8pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(3)</th><th style="vertical-align: top; text-align: center; white-space: normal; border-style: solid solid solid solid; border-width: 0.8pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(4)</th><th style="vertical-align: top; text-align: center; white-space: normal; border-style: solid solid solid solid; border-width: 0.8pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(5)</th><th style="vertical-align: top; text-align: center; white-space: normal; border-style: solid solid solid solid; border-width: 0.8pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(6)</th></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(Intercept)</th><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: bold;">26369.352&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: bold;">21700.424&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: bold;">14880.347&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: bold;">14787.908&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: bold;">10113.275&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">-9942.056&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(187.318)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(362.311)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(376.241)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(541.248)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(457.967)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(12970.253)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">id</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2.808&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2.511&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2.599&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2.346&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">3.160&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(0.189)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(0.153)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(0.128)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(0.124)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(0.136)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">season_nameSpring</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">9377.186&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">3057.721&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">3934.267&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">197.318&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(411.867)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(729.632)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(391.905)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(370.407)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">season_nameSummer</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">13997.983&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">5613.154&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">3747.521&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1085.659&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(410.990)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(871.660)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(506.665)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(470.244)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">season_nameAutumn</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">5453.094&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">6025.697&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2035.978&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2459.247&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(411.560)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(762.375)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(355.523)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(330.228)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(day)2</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1846.910&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1787.263&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1784.635&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(446.326)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(434.118)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(392.132)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(day)3</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1932.687&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1812.519&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1973.008&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(448.289)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(436.076)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(393.237)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(day)4</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1750.042&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">1545.894&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2231.854&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(449.755)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(437.666)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(392.768)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(day)5</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">669.647&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">562.355&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">732.098&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(440.701)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(428.324)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(383.442)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(day)6</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-3877.050&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-4053.297&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-3389.904&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(445.643)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(433.818)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(393.209)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(day)7</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-5438.901&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-5376.886&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-4591.252&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(447.787)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(435.255)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(391.662)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)2</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">1141.588&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(611.293)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)3</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">3060.918&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(636.801)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)4</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">5011.291&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(939.129)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)5</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">8140.326&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(939.127)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)6</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">9864.031&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(918.125)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)7</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">10437.320&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(1057.484)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)8</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">8273.129&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(1051.284)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)9</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">6299.469&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(962.358)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)10</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">2806.371&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(961.999)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)11</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">-1838.608&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">(969.557)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">factor(month)12</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-5495.466&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(791.813)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">avg_temp</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">880.123&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">782.052&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(33.513)</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(31.261)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">avg_humidity</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-288.078&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(12.689)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">avg_pressure</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">46.458&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(12.364)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">avg_windspeed</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-289.692&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(19.637)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">rainfall_mm</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: bold;">-69.787&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;"></th><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.4pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: bold;">(30.383)</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">#observations</th><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">2301&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">2301&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">2301&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">2301&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">2279&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0.4pt 0pt 0pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">1832&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">R squared</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.000&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.087&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.410&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.594&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.620&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.745&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">Adj. R Squared</th><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.000&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.087&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.409&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.591&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.618&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; padding: 6pt 6pt 6pt 6pt; font-weight: normal;">0.743&nbsp;</td></tr>
+<tr>
+<th style="vertical-align: top; text-align: left; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.8pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">Residual SE</th><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.8pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">8985.414&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.8pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">8586.476&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.8pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">6907.335&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.8pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">5749.887&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.8pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">5566.289&nbsp;</td><td style="vertical-align: top; text-align: right; white-space: normal; border-style: solid solid solid solid; border-width: 0pt 0pt 0.8pt 0pt;    padding: 6pt 6pt 6pt 6pt; font-weight: normal;">4485.924&nbsp;</td></tr>
+</table>
+
+<p>Clearly, our model6 has the biggest R^2 and the least squared residuals. Let’s see what <code>ggpairs</code> can tell us about the correlation between the numerical variables.</p>
+<pre class="r"><code>bikes_train %&gt;% 
+  select(avg_temp, avg_humidity, avg_pressure, avg_windspeed, bikes_hired) %&gt;% 
+  ggpairs()</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/ggpairs-1.png" width="672" /></p>
+<p>We see now big correlations between the explanatory variables. In order to add diagnostics, we should include our L-I-N-E plot with <code>autoplot()</code> from the <code>GGFortify</code> package.</p>
+<pre class="r"><code>autoplot(model6)</code></pre>
+<pre><code>## Warning: `arrange_()` is deprecated as of dplyr 0.7.0.
+## Please use `arrange()` instead.
+## See vignette(&#39;programming&#39;) for more help
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_warnings()` to see where this warning was generated.</code></pre>
+<p><img src="/posts/londonBikes_regression_files/figure-html/autplot_model6-1.png" width="672" />
+Let’s analyse our diagnostics:</p>
+<p><code>Residuals vs Fitted</code>: We don’t see a pattern in the data and Y goes around the 0. It seems to be acceptable, since there is not a pattern in the data that is currently unaccounted for.</p>
+<p><code>Normal Q-Q</code>: The residuals seem to follow a fairly normal distribution as most of them don’t deviate from the line.
+<code>Scale-location:</code> There seems to be a constant variability across the fitted values.</p>
+<p><code>Residuals vs. Levareage</code>: Most values go around the zero, that means there are not many values with a high undue influence in our model.</p>
+<p>It seems that our <code>best model</code> follows all the rules and the results based from this can be acceptable. We will choose model6 as the ideal model to predict our results.</p>
+</div>
+<div id="predict" class="section level1">
+<h1>Predict</h1>
+<p>We want to predict how many bikes will be hired on regular day with an average temperature of more than 15 degrees in Summer. Let’s filter our dataset first and then build predictions.</p>
+<pre class="r"><code>bikes_test_fil &lt;- bikes_test %&gt;%
+  filter(season_name == &quot;Summer&quot;,
+         avg_temp&gt;15) %&gt;% drop_na() %&gt;% # We need to drop these results where we don&#39;t get insights
+  mutate(row_number = row_number()) %&gt;%
+  select(row_number, id, season_name, day, avg_temp, avg_humidity, avg_pressure, avg_windspeed, rainfall_mm, bikes_hired )</code></pre>
+<pre class="r"><code># Create dataframe with model prediction
+
+# Use as_tibble to convert to df
+
+model_predictions&lt;-as_tibble(predict(model6, bikes_test_fil, interval=&#39;prediction&#39;)) %&gt;%
+  
+  # Create row number column
+  mutate(row_number= row_number())
+
+
+# Final result
+final_result&lt;- bikes_test_fil %&gt;%
+  # Join data frames
+  inner_join(model_predictions, by=&#39;row_number&#39;) %&gt;%
+  # Convert from logarithmic
+  mutate(predicted_bikes=fit,
+         predicted_lwr = lwr,
+         predicted_upr = upr) %&gt;%
+  
+  # Select varaibles of interest
+  select(bikes_hired, predicted_bikes, predicted_lwr, predicted_upr) %&gt;% 
+  # Create &quot;prediction&quot; variable
+  mutate(good_prediction = ifelse(
+    bikes_hired &lt; predicted_lwr | bikes_hired &gt; predicted_upr, FALSE, TRUE))
+
+# Show first 5 results
+kable(head(final_result, 5))</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+bikes_hired
+</th>
+<th style="text-align:right;">
+predicted_bikes
+</th>
+<th style="text-align:right;">
+predicted_lwr
+</th>
+<th style="text-align:right;">
+predicted_upr
+</th>
+<th style="text-align:left;">
+good_prediction
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+27297
+</td>
+<td style="text-align:right;">
+32618.46
+</td>
+<td style="text-align:right;">
+23784.64
+</td>
+<td style="text-align:right;">
+41452.29
+</td>
+<td style="text-align:left;">
+TRUE
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+19485
+</td>
+<td style="text-align:right;">
+23472.09
+</td>
+<td style="text-align:right;">
+14638.92
+</td>
+<td style="text-align:right;">
+32305.26
+</td>
+<td style="text-align:left;">
+TRUE
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+22464
+</td>
+<td style="text-align:right;">
+25101.89
+</td>
+<td style="text-align:right;">
+16271.21
+</td>
+<td style="text-align:right;">
+33932.56
+</td>
+<td style="text-align:left;">
+TRUE
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+25185
+</td>
+<td style="text-align:right;">
+34426.52
+</td>
+<td style="text-align:right;">
+25584.92
+</td>
+<td style="text-align:right;">
+43268.12
+</td>
+<td style="text-align:left;">
+FALSE
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+25636
+</td>
+<td style="text-align:right;">
+31627.68
+</td>
+<td style="text-align:right;">
+22797.34
+</td>
+<td style="text-align:right;">
+40458.02
+</td>
+<td style="text-align:left;">
+TRUE
+</td>
+</tr>
+</tbody>
+</table>
+<p>The results of the upper 5 predictions are shown in the above table. This shows that 4 out of 5 times, the actual value is within the prediction interval. Let us summarise the result to get an overview of the overall effectiveness.</p>
+<pre class="r"><code># Plot final result
+final_result %&gt;% 
+  
+  group_by(good_prediction) %&gt;% 
+  summarise(num_good = n()) %&gt;%
+  kable()</code></pre>
+<pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+good_prediction
+</th>
+<th style="text-align:right;">
+num_good
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+FALSE
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TRUE
+</td>
+<td style="text-align:right;">
+43
+</td>
+</tr>
+</tbody>
+</table>
+<p>From the previous results, 43 of the real values were within our prediction interval, whereas 6 were not. These were classified as <code>bad predictions</code>.</p>
+<p>To finalise our analysis, we can get summary statistics on our values. Our predicted price will be the mean of the <code>.fitted</code> values, with a lower prediction interval of the <code>min</code> lower and an upper prediction interval of the <code>max</code> upper.</p>
+<pre class="r"><code>final_result %&gt;%
+  # Summarise
+  summarise(
+    # mean of prediction
+    average_prediction = mean(predicted_bikes),
+    # Lower PI
+    lower_pi = min(predicted_lwr),
+    # Max pi
+    upper_pi = max(predicted_upr)
+  ) %&gt;%
+  select(lower_pi, average_prediction, upper_pi) %&gt;%
+  kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+lower_pi
+</th>
+<th style="text-align:right;">
+average_prediction
+</th>
+<th style="text-align:right;">
+upper_pi
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+11766.33
+</td>
+<td style="text-align:right;">
+33187.39
+</td>
+<td style="text-align:right;">
+52992.82
+</td>
+</tr>
+</tbody>
+</table>
+<p>For a Summer day in London with more than 15 degrees in <code>avg_temp</code>, the mean of the <code>bikes_hired</code> will be around 33000, with a minimum of 12000 and a maximum of 53000.</p>
+</div>

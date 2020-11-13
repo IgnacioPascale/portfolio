@@ -1,0 +1,226 @@
+---
+categories:
+date: "2020-10-29"
+description: "My experience dealing with weekly batches of messy raw data"
+draft: false
+keywords: ""
+slug: data_pipeline
+title: "From raw data to valuable insights: Building a data pipeline on Python"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+
+Data is all about extracting insights. That is, in essence, what companies pay for: experts who can take a thousands of datasets and provide quality data-driven decision making to help businesses thrive. However, getting the data right can be quite the challenge. Very rarely will datasets come clean and ready to be analyzed. That is why we first "ICE" the data. That is, *inspect, clean, and explore*. This part is often done on several scripts using Python or R. But what happens when the data is so messy that it requires even more complex "ICing"? What happens if your data input is not just an isolated data set, but instead weeks and weeks and *weeks* of data that is being "received" periodically?
+
+In this blogpost, I will present an example of how I standardised and automated the transformation of impressively *(yes, I am still impressed by these datasets)* messy raw data.
+
+## Context
+
+Before we move on, I should add a bit of *context*. I developed this project while working as a Data Analyst for one of my previous employers. In the data management department, most of the loading input was automated: clients would send their files over a certain tool (e.g email, ftp, etc), and the data would be downloaded into the ftp servers. Later on, some scripts would generate copies of the data and automatically upload it into a database on PostgreSQL.
+
+One of our clients would send us their data in a very odd format and, evidently, the process would fail as a result.
+
+![](https://i.ibb.co/7KqCxTv/failure-process.png)
+
+
+For that reason, I developed a pipeline on **Python** that would receive raw data on ftp, download the file on the local server, perform transformations and output one file with the normalised data on the local server and the ftp server.
+
+**Let it be known for the reader that no sensitive information about the companies is disclosed in this blogpost. I took extreme precautions to change the details in the code and the text. The sole purpose of this blogpost and its respective [github repository](https://github.com/IgnacioPascale/pipeline-project) is to showcase my work.**
+
+## Raw Data
+
+In this section we will delve into the specific format of each file and how we approach the normalisation. Please bare in mind that the pictures shown below are mere **examples** and do not contain real data. The exact name of the columns have been changed as well, as this is only necessary for explaining purposes.
+
+This company used to send 5 or 6 different files each week. These are:
+
+- `X1`
+- `X1 Online` (not very usual)
+- `X2 B`
+- `X3 B`
+- `X4`
+- `X5`
+
+
+### Format
+
+The partner would provide files as depicted below:
+
+![](https://i.ibb.co/3rkDSRn/Captura-de-pantalla-2020-08-07-a-las-12-27-12.png)
+
+As it can be seen, it uses the first 6 columns for product data. From the 7th column onwards, it provides sales data, with the Store name on the top x-axis, matching "Quantity" and "Revenue" values on the y-axis from the left-hand side, depicting a shape similar to that of a matrix. It then provides "Total" sum of values for both "Quantity" and "Revenue" in the y-axis from the right-hand side, and a total sum of sales per store in the bottom x-axis. The N number in the number of stores would usually go from 60 to 200, depending on the file type.
+
+### "X5" type
+
+Unfortunately, not all files were the same. The last type mentioned in the introduction ("X5") has a slightly difference input, as depicted below:
+
+![](https://i.ibb.co/0jfqBXF/Captura-de-pantalla-2020-08-07-a-las-12-27-31.png)
+In this case, the difference is that the main identifier of the Store is in the row in which other files contain the full name of it. Then, the name of the stores are found one row below. In the code, we find a way of merging this particular case.
+
+### "B" types
+
+Contrary to the other file types, those whose name end in box provide a slightly different layout, as depicted below:
+
+![](https://i.ibb.co/VgJ9QP5/Captura-de-pantalla-2020-08-07-a-las-12-27-40.png)
+
+It can be appreciated in this picture that the order of "revenue" and "quantity" are in a different order. In all the other types, the column "Quantity" comes first, and "Revenue" afterwards. In this case, it is the opposite.
+
+## Extraction
+
+In the first place, we need to extract our data from the ftp server. The name of the files did not help here: They would look like this:
+
+```shell
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X2 B.xlsx
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X4.xlsx
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X3 B.xlsx
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X5.xlsx
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X1.xlsx
+```
+
+Where the `XXXXXXXXXXXXXXXXX` bit would be a bunch of numbers that would contain the date and other information. For this part, I developed a script that would:
+
+  1. Connect to the FTP Server
+  2. Iterate over the name of the files of the corresponding week (using regex, the identifier would be "29" "2020" as week 29 of 2020)
+  3. Download the files to a local server
+  4. Rename the files to a more conventional name
+
+![](https://i.ibb.co/84Zn0wk/extraction.png)
+
+In our code, the methods associated with `load.py` loop over these file names and extract them in the local server. Then, the methods in `extraction.py` will first rename the files (by slicing over the numbers before "*_WEEK") and store the datasets in dictionaries with "file type" ("X1", "X2 B", etc) as keys and data frames as values.
+
+```shell
+Logged XXXXXXXXXXXXXXXXX_WEEK 29-2020 X2 B.xlsx
+Logged XXXXXXXXXXXXXXXXX_WEEK 29-2020 X4.xlsx
+Logged XXXXXXXXXXXXXXXXX_WEEK 29-2020 X3 B.xlsx
+Logged XXXXXXXXXXXXXXXXX_WEEK 29-2020 X5.xlsx
+Logged XXXXXXXXXXXXXXXXX_WEEK 29-2020 X1.xlsx
+Successfully downloaded XXXXXXXXXXXXXXXXX_WEEK 29-2020 X2 B.xlsx
+Successfully downloaded XXXXXXXXXXXXXXXXX_WEEK 29-2020 X4.xlsx
+Successfully downloaded XXXXXXXXXXXXXXXXX_WEEK 29-2020 X3 B.xlsx
+Successfully downloaded XXXXXXXXXXXXXXXXX_WEEK 29-2020 X5.xlsx
+Successfully downloaded XXXXXXXXXXXXXXXXX_wEEK 29-2020 X1.xlsx
+
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X2 B.xlsx was renamed to WEEK 29-2020 X2 B.xlsx
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X4.xlsx was renamed to WEEK 29-2020 X4.xlsx
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X3 B.xlsx was renamed to WEEK 29-2020 X3 B.xlsx
+XXXXXXXXXXXXXXXXX_WEEK 29-2020 X5.xlsx was renamed to WEEK 29-2020 X5.xlsx
+XXXXXXXXXXXXXXXXX_wEEK 29-2020 X1.xlsx was renamed to WEEK 29-2020 X1.xlsx
+
+
+```
+
+## Transformation
+
+Given the messy data sets, the transformation ended up being a bit messy in itself. In the first place, a script would again loop over the name of the files, read each file as a data frame and store them in dictionaries. Since not all 5 (or 6) files looked the same, I needed to standardised them in order to make the transformation workflow simpler. For each file type, the script would perform `preliminar transformations` to make them look all the same.
+
+Remember that the data frames had two different parts: products and sales data. For this purpose, the transformation process was bifurcated. We separated the product data into one dataframe called `details` (first 6 columns) and the sales data into another one called `prep` (column 7 until column *N*). The latter would still have the `product code`, a unique identifier, to allow for a merge once the data was transformed.
+
+![](https://i.ibb.co/xLBn7Cj/transformation.png)
+
+   
+### Details
+
+This transformation would be the simple bit. The bifurcation would consist of taking the last column of the data frame (that would indicate the type) and the first 6 columns. We would then apply the method called `get_detail` and perform all required transformations. These would include filling down empty fields with their previous, standardising the name of the headers, and so forth. 
+
+
+### Prep
+
+The sales product was the real challenge of this transformation. As explained above, each file type was essentially different and this part of the data set was no different.
+
+In the first place, I had to find a way of stacking the `matrix` format into a `table` format. For this purpose, I developed a few script that would take care of that according to the file type. In our code, the process would look as follows:
+
+1. Apply `prep_file` method. This will perform all required transformations for this part of the dataset
+2. Set Quantity and Revenue columns. If the key ends with "B", we know the Revenue comes first and quantity after. If not, it's the opposite. We will have 2  different datasets (pricing and units)
+3. Concat these dataframes and remove unnecessary columns and Null values.
+
+![](https://i.ibb.co/6NDRLFd/sales-trans.png)
+
+### Final Merge
+
+Once both parts of the process were finished, we would re-merge the `detail` and `prep` data frames and create a final output that would indicate the sales for each store, in each `file_type` for that specific week.
+
+![](https://i.ibb.co/WgYbMvw/final-trans.png)
+
+### Output
+
+Once the transformation is done, the method `export_data` in `extraction.py` will place the final file in the local server. Soon after, the method `load_file` will upload the final file in the ftp server.
+
+This is what the process looks like on the shell
+
+```shell
+Logged WEEK 29-2020 X1.xlsx
+Logged WEEK 29-2020 X2 B.xlsx
+Logged WEEK 29-2020 X4.xlsx
+Logged WEEK 29-2020 X5.xlsx
+Logged WEEK 29-2020 X3 B.xlsx
+
+transforming... X1
+transforming... X2 B
+transforming... X4
+transforming... X5
+transforming... X3 B
+
+xxxx.csv was succesfully exported to //.../transformed/
+xxxx.csv was loaded successfully on ftp /.../transformed/
+```
+
+## Quality Check
+
+Finally, I needed to make sure that the data was not affected by the transformation. I developed a script to perform quality check of the final output.
+
+The method `quality_check(final_df)` will deliver a comparison between the summary of the units and revenue between the rawfiles and the normalised output. It will show up as follows:
+
+```shell
+-----------
+X1 Quality Check - Week:  29
+          File   Units        Revenue
+0     Original  XXXX            XXXX
+1  Transformed  YYYY            YYYY
+------------
+X2 B Quality Check - Week:  29
+          File   Units        Revenue
+0     Original  XXXX            XXXX
+1  Transformed  YYYY            YYYY
+------------
+X3 B Quality Check - Week:  29
+          File   Units        Revenue
+0     Original  XXXX            XXXX
+1  Transformed  YYYY            YYYY
+------------
+X4 Quality Check - Week:  29
+          File   Units        Revenue
+0     Original  XXXX            XXXX
+1  Transformed  YYYY            YYYY
+------------
+X5 Quality Check - Week:  29
+          File   Units        Revenue
+0     Original  XXXX            XXXX
+1  Transformed  YYYY            YYYY
+
+```
+
+### Interesting bits and bops
+
+One interesting aspect of this process emerged when doing quality check (QC) on the first transformed files. I was surprised to see that, in some occassions, the QC wouldn't find matches between the raw files (original) and the transformed files. This situation led to me reviewing each class and method at least 10 times to understand what was wrong. After thorough checking, I found that the data provided by the client was not always accurate: in some cases, **they do not sum the units/revenue correctly** in their excel files. This meant that the client was **involuntarily** (at least that is what I want to believe) **under-reporting sales**. My pipeline would indeed show the exact amount of sales in terms of units and revenue and their original files wouldn't. That being said, it was likely to spot some differences in the QC, but it was not extremely common.
+
+
+## Conclusion & Critique
+
+All in all, the above document describes my experience in dealing with impressively messy raw data. Thanks to this pipeline, we were able to convert their weekly inputs into our readable format and later on extract valuable insights to help their business. In the end, the new process would look as follows:
+
+![](https://i.ibb.co/8Mw9btr/final-process-final.png)
+
+On the other hand, I would have liked to deploy this pipeline on a container instead of running it on a local server. Unfortunately, the company was a bit too rigid and bureaucratic in some aspects, and since they did not want to risk any data breaches, they'd rather have it running internally.
+
+I should mention, however, the system is far from perfect. I believe I am far more advanced on python to develop this in a more efficient way, but since I no longer have access to their systems, I cannot try further modifications on the code.
+
+I did not include code in this article, but if you want to check it, you can see it in the [github repo](https://github.com/IgnacioPascale/pipeline-project). Do make sure to have a look at the readme first as it establishes more technical details associated with the process. Albeit being a kind of old project for me, I am open to any form of constructive criticism and code review.
+
+Thank you for reading until the end.
+
+
+

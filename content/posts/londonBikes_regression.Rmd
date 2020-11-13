@@ -1,0 +1,605 @@
+---
+categories:
+date: "2020-09-20"
+description: A linear regression approach on predicting hirings of London Bikes
+draft: false
+keywords: ""
+slug: londonBikes_regression
+title: How many bikes will be hired on a regular day on Summer?
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(data.table)
+library(skimr)
+library(broom)
+library(lubridate)
+library(GGally)
+library(kableExtra)
+library(huxtable)
+library(car)
+library(here)
+library(moderndive)
+library(rsample)
+library(ggfortify)
+```
+
+# Introduction
+
+In the following workshop I will analyse the data set `londonBikes` from the UK Government. I will try to build a model in which to quantify the relationship of hired bikes and some explanatory variables using regression analysis, and shortly after I will use that model to predict the number hirings for a regular day in London in Summer with more than 15 degrees Celcius.
+
+The workflow will proceed as follows:
+
+1. Clean and inspect the data
+2. Exploratory Data Analysis
+3. Build models
+4. Build diagnostics
+5. Predict
+
+
+# Clean and inspect the data
+
+We will first import the following dataset.
+
+```{r import_dataset, echo=TRUE, message=FALSE, warning=FALSE}
+# Import bikes dataset
+bikes <- read_csv(here("datasets", "londonBikes.csv"))
+```
+
+It's always a good idea to get a glimpse of what our data looks like.
+
+```{r glimpse_bikes, echo=TRUE}
+# Take a glimpse at the data
+glimpse(bikes)
+```
+
+```{r skim, echo=TRUE}
+
+skim(bikes)
+
+```
+
+
+We have a dataset with 3439 observations and 14 variables. Unfortunately, our data set is filled with null values as well, in particular with `min_temp` and `max_temp`. However, we are not going to use these 2, but the `avg_temp`, where there are only 27 `NA`.
+
+Now let's take a look at the raw data by taking a sample of 5.
+
+```{r sample_5, echo=TRUE}
+# Sample of 5
+sample_n(bikes, 5) %>% kable()
+
+```
+
+
+From what we can analyse in this dataset, the column `date` has a `char` variable, not a date. This will give us problems when trying to plot results or extract insights. At the same time, we can see many `NA` values in most of the variables. At the end of the data frame, we can spot 4 columns with `boolean` or `logical` data structure.
+
+We will create a column called `id` to identify the records. We will also convert the `date` column into `date()` format and add a few other columns about the dates. We also want to convert the `season` from a numerical variable into a categorical variable. For this purpose, we will convert it into a factor and order it in the levels of: `winter`, `spring`, `summer` and `autumn`.
+
+```{r bikes_cleaned, echo=TRUE}
+# Create new object
+bikes_cleaned <- bikes%>% 
+  # Insert new variables
+  mutate(
+    # Record number
+    id = row_number(),
+    # Change date format
+    date=dmy(date),
+    # Add year column
+    year=year(date),
+    # Add month column (number)
+    month = month(date),
+    # Add month column (name)
+    month_name=month(date, label = TRUE),
+    # Add day
+    day = wday(date, week_start = 1),
+    # Add day of the week
+    day_of_week = wday(date, label = TRUE,week_start = 1),
+    # need to mutate (or turn) seasons from numbers to Winter, Spring, etc
+    season_name = case_when(
+      season == 1 ~ "Winter",
+      season == 2 ~ "Spring",
+      season == 3 ~ "Summer",
+      season == 4 ~ "Autumn"
+    ),
+    season_name = fct_relevel(season_name, "Winter", "Spring", "Summer", "Autumn")
+  ) %>% 
+  # Filter by year 2020
+  filter(year<2020)
+
+```
+
+
+
+# Exploratory Data Analysis
+
+In this section we will try to understand how our dataset is composed and extract different insights
+
+## Distribution of a variable
+
+Since we want to predict the number of hirings, our variable of interest will be `bikes_hired`. Let's now take a look at it and see how it relates to other variables.
+
+```{r skim_bikes_cleaned, echo=TRUE}
+bikes_cleaned %>% select(bikes_hired) %>% skim()
+```
+It looks the average bikes_hired per year was about 26269. Let's plot the distribution of our variable of interest.
+
+```{r plot_bikes_hired, echo=TRUE, message=FALSE, warning=FALSE}
+hired_dist <- ggplot(bikes_cleaned, aes(bikes_hired)) +
+  geom_histogram(color='white', bins=20, fill='steelblue') +
+  # Add labels
+  labs(title="Distribution of bikes hired",
+       subtitle = "Figure 1.1",
+       x = "Bikes hired",
+       y= "Count",
+       caption = "Source: Bikes Hired in London 2011-2020") +
+  
+  xlim(breaks= c(0,50000)) +
+  theme_bw()
+
+plot(hired_dist)
+
+```
+
+Our variable `bikes_hired` follows a fairly normal distribution with a mean of 26269, SD of 9004 and a median of 26131. This is good news, as we can analyse the mean of the variable to proceed with our analysis.
+
+
+## Time Series Analysis
+
+What seasons of the year have the most hirings? We can analyse this data with a `boxplot`.
+
+```{r boxplot_seasonality_1, echo=TRUE}
+
+ggplot(bikes_cleaned, aes(reorder(season_name, -bikes_hired), bikes_hired)) +
+  geom_boxplot() +
+  
+  # Add labels
+  labs(title = "Londoners prefer to bike on summer",
+       subtitle = "Figure 1.2 | Seasonality on bike hirings in 2011-2019",
+       caption= "Source: Bikes Hired in London 2011-2020",
+       y = "Bikes hired",
+       x = "Season")
+
+```
+
+It seems that Summer is the preferred month by Londoners to rent a bike - not much of a surprise. Let's drill down and analyse this by day of the week.
+
+```{r boxplot_seasonality, echo=TRUE}
+
+ggplot(bikes_cleaned, aes(reorder(day_of_week, -bikes_hired), bikes_hired)) +
+  geom_boxplot() +
+  
+  # Add labels
+  labs(title = "Londoners prefer to bike on Wednesdays",
+       subtitle = "Figure 1.3 | Seasonality on bike hirings in 2011-2019 - day of week",
+       caption= "Source: Bikes Hired in London 2011-2020",
+       y = "Bikes hired",
+       x = "Season")
+
+```
+As we can appreaciate in the plot, there are a few outliers. We can delve more into the data and see what happened during these days.
+
+What if we checked the hirings depending on the avg_temp, **is there a correlation?** We can figure this out by building a scatterplot.
+
+```{r bikes_corrlation, echo=TRUE, message=FALSE, warning=FALSE}
+
+# Create ggplot object
+ggplot(bikes_cleaned, aes(avg_temp,
+                          bikes_hired)) +
+  # Add scatterplot
+  geom_point() +
+  # Add line
+  geom_smooth(method='lm', se=FALSE) +
+  
+  facet_wrap(~season_name) +
+  
+  # Add labels
+  
+  labs(title = "Londoners love to bike on high temperatures",
+       subtitle = "Figure 1.4",
+       x = "Average temperature",
+       y = "Bikes hired",
+       caption= "Source: Bikes Hired in London 2011-2020")
+  
+
+
+```
+It is clear by our graphs that Londoners (or tourists) do prefer to bike in higher temperatures. This is correlated with the `season_name` - as we can appreciate, we can find more points to the top right on Spring and Summer, and not so many there on Autumn and Winter.
+
+## Hypothesis test
+
+Let's find out whether there is a significant difference in the population means of Spring and Summer.
+
+**H0**: There is no difference in the means of hirings between Spring and Summer.
+**H1**: There is a difference in the means of hirings between Spring and Summer.
+
+First we will build 95% confidence intervals for the sample means of Spring and Summer and check whether they actually overlap.
+
+```{r mean_pop, echo=TRUE}
+
+# Build dataframe
+spring_summer<- bikes_cleaned %>%
+  # Filter by summer/spring
+  filter(season_name %in% c("Spring",
+                            "Summer")
+         ) %>%
+  # Group by season name
+  group_by(season_name) %>%
+  # Summary statistics
+  summarise(
+    # Mean
+    mean = mean(bikes_hired),
+    # SD of sample
+    sd = sd(bikes_hired),
+    # Count
+    count = n(),
+    # SE
+    se = sd/sqrt(count),
+    # Since we don't know the SD of the population, we will use the t distribution
+    t_critical = qt(0.975, count-1),
+    # Lower CI
+    lower = mean - t_critical*se,
+    # Upper CI
+    upper = mean + t_critical*se
+  ) %>%
+  
+  select(season_name, lower, mean, upper, se, count, sd,t_critical)
+
+# Show results
+spring_summer %>% kable()
+
+
+```
+
+Our confidence intervals do not overlap. Clearly, there is a difference between spring and summer - the difference in population means in summer is greater than that of Spring.
+
+Although our results are clear enough, we could try using other methods. This is how we would do it using a `t-test`
+
+```{r t-test, echo=TRUE}
+
+spring_summer_test<-bikes_cleaned %>%
+  filter(season_name %in% c("Summer","Spring")) %>%
+  select(season_name, bikes_hired)
+  
+t.test(bikes_hired~season_name, spring_summer_test)
+```
+As expected, out t-stat is <-2 and our p-value is less than 5% - that means, the difference is significant enough. 
+
+Finally, if we wanted to use bootstrap using `infer`, we would do it the following way. First, we need to initialise the test.
+
+```{r bootstrap, echo=TRUE}
+library(infer)
+# Save object in obs diff
+obs_diff<- spring_summer_test %>%
+  # Specify vars
+  specify(bikes_hired ~ season_name) %>%
+  # Calculate
+  calculate(stat = "diff in means", order=c("Summer","Spring"))
+
+```
+
+Now, we can simulate our test in the null distribution.
+
+```{r}
+# Create new object
+null_dist <- spring_summer_test %>%
+  # Specify variables
+  specify(bikes_hired ~ season_name) %>%
+  # hypothesize - where we can our variable to set the null - in this case, no difference in bikes_hired
+  hypothesize(null = "independence") %>%
+  # Number of reps and permute as type
+  generate(reps = 1000, type = "permute") %>%
+  # Calculate diff in means
+  calculate(stat = "diff in means", order = c("Summer", "Spring"))
+```
+
+Here, `hypothesize` is used to set the null hypothesis as a test for independence, i.e., that there is no difference between the two population means. In one sample cases, the null argument can be set to point to test a hypothesis relative to a point estimate.
+
+Also, note that the type argument within generate is set to `permute`, which is the argument when generating a null distribution for a hypothesis test.
+
+We can visualize this null distribution with the following code:
+```{r plot_distribution_test, echo=TRUE}
+# Plot distribution
+ggplot(data = null_dist, aes(x = stat)) +
+  geom_histogram(color='white') +
+  # Add labels
+  labs(title="A normal distributed variable",
+        subtitle = "Figure 1.5",
+        caption= "Source: Bikes Hired in London 2011-2020")
+```
+Now that the test is initialized and the null distribution formed, we can visualise to see how many of these null permutations have a difference of at least obs_stat of 1.77.
+
+Basically, what we are doing here is simulating a world in which our null value works, and see how our previous observation (difference in means) fits here. If the results is suprising (which we expect it to be), we can go ahead and reject the null hypothesis that there are no difference in the population means from `bikes_hired` in London between Summer and Spring.
+
+We can also calculate the p-value for the hypothesis test using the function `infer::get_p_value()`.
+
+```{r visualise, echo=TRUE, warning=FALSE, message=FALSE}
+null_dist %>% visualize() +
+  shade_p_value(obs_stat = obs_diff, direction = "two-sided")
+```
+
+The results are clear; there is a statistical significance in the difference of means of `bikes_hired` between Summer and Spring. We can reject the null hypothesis.
+
+# Build models
+
+Let's try to fit our model. As our variable of interest is `bikes_hired`, we want to explore the correlation with other possible variables in the dataset.
+
+## Out of sample 
+
+We will split our dataset into `training` and `testing` using the library `rsample`. The division will be of 70/30.
+
+```{r out_of_sample, echo=TRUE}
+# For reproducibility, set seed - we always get the same split
+set.seed(1234)
+# Save into object with 30/70
+test_train_split <- initial_split(bikes_cleaned, prop=0.70)
+# train dataset
+bikes_train<- training(test_train_split)
+# testing dataset
+bikes_test<- testing(test_train_split)
+
+```
+
+
+## Model 1
+
+We will first establish our model with the variable of interest
+
+```{r model_1, echo=TRUE}
+
+model1 <- lm(bikes_hired ~1, bikes_train)
+
+
+tidy(model1) %>%kable()
+glance(model1) %>% kable()
+anova(model1) %>% kable()
+
+```
+
+In our first model, we get an estimate on the intercept that equals the mean. Since this variable follows a normal distribution, the std error was the SD of the sample/sqrt(n).
+
+## Model 2
+
+Let's include another variable to analyse this. The `id` of bikes.
+
+```{r}
+model2 <- lm(bikes_hired ~ id, bikes_train)
+
+tidy(model2) %>% kable()
+glance(model2)%>% kable()
+anova(model2)%>% kable()
+```
+
+In our first model we included the `id` row. As it can be seen, this value seems to be significant enough: the t-statistic is 17.5 (far bigger than 2). The coefficient of 2.8 means that, for every increase in the id number, the number of bikes hired will increase on average 2.8. Our R^2 is, however, just 8%. That means our model only explains 8% of the variability. With this much uncertainty, we might as well just take a look at the mean. 
+
+We will keep adding significant variables to improve our R^2 and then train our model.
+
+
+## Model 3
+
+Previously, we proved that `season_name` could be a significant predictor of our outcome variables `bikes_hired`. Let's include in our model.
+
+```{r model3, echo=TRUE}
+
+model3 <- lm (bikes_hired ~ id + season_name, data = bikes_train)
+
+
+tidy(model3) %>% kable()
+glance(model3) %>% kable()
+anova(model3) %>% kable()
+
+
+```
+
+
+Our R^2 increased to 40% and all the variables seem to be significant enough. The intercept seems to be Winter, being this probably the season in which the hirings are at their lowest. Since `season_name` is a categorical value, we know that each `k` is associated with a binary `x`. e.g If the season is `Summer`, our formula would look as follows:
+
+bikes_hired = 14880 + 2.5* id +  13997* Summer * 1 + 9337 * Spring * 0 + 5433 * Autumn * 0 
+
+bikes_hired = 14880 + 2.5 * id + 13997
+
+In this scenario, the variables `summer`, `autumn` would not work, because they'd be multiplied by 0. The reason why winter remains as the intercept is because the avg number of `bikes_hired` is lower than those of summer. That means, our model is that that as the lowest point where we could start, and any other season will have a greater number of hirings.
+
+## Model 4
+
+Previously we saw an impact in day of the week hirings and months. Let's understand whether these are significant predictors in our model
+
+```{r model4, echo=TRUE}
+model4 <- lm (bikes_hired ~ id + season_name + factor(day) + factor(month), data = bikes_train)
+
+tidy(model4) %>% kable()
+glance(model4) %>% kable()
+anova(model4) %>% kable()
+```
+
+It looks like these indeed make a difference. However, months are related to season names, which also proved to be significant predictors in our model. Including both might mean we are at risk of multi-collinearity. We can check this by doing a `Variance Factor Inflation`.
+
+```{r vif_model4, echo=TRUE}
+
+car::vif(model4)
+
+```
+
+Following the rule, if the vif is >5, then we can assume there is multi-collinearity. Indeed, in this case, the `season_name` and the `month` are highly correlated. We will remove the `month` factor and keep the season name in this model.
+
+### Model 5
+
+After removing the month factor, we want to understand the impact of the `avg_temp` in our model.
+
+```{r model5, echo=TRUE}
+
+model5 <- lm (bikes_hired ~ id + season_name + factor(day) + avg_temp, data = bikes_train)
+
+tidy(model5) %>% kable()
+glance(model5) %>% kable()
+anova(model5) %>% kable()
+```
+
+Our R^2 improved to 61%. Our new variable `avg_temp` is signficant enough, with a t-stat of 30. For an increase of one unit in the average temperature, hirings will go up by 880. 
+
+However, `avg_temp` might, again, be highly correlated with the `season_name`. Let's see this again
+
+```{r vif_model5, echo=TRUE}
+
+vif(model5)
+
+```
+
+Our `Variance Factor Inflation` tells us that we are at no risk of multi-collinearity. That means, we can keep these variables and our model shows a solid R^2 of 61%.
+
+### Model 6
+
+Let's keep adding weather-related variables, as these proved to be significant enough so far. This time, we want to see the impact of `avg_humidity`, `avg_pressure`, `avg_windspeed` and `rainfall_mm`.
+
+```{r model6, echo=TRUE}
+model6 <- lm (bikes_hired ~ id + season_name + factor(day) + avg_temp + avg_humidity + avg_pressure + avg_windspeed + rainfall_mm, data = bikes_train)
+
+tidy(model6) %>% kable()
+glance(model6) %>% kable()
+anova(model6) %>% kable()
+```
+
+All of our new variables seem to be significant enough, as all the statistic values are far greater or lower than 2 or -2 correspondingly. As a result, our model can now explain 75% of the variability.
+
+```{r vifmodel6, echo=TRUE}
+
+vif(model6)
+
+```
+
+It seems that the weather-related variables are not at high risk of multi-collinearity with the `season_name`. We can now proceed with our diagnostics.
+
+# Build dignostics
+
+Let's fit a huxtable to compare our models.
+
+```{r huxtable, echo=TRUE}
+huxreg(model1, model2, model3, model4, model5, model6,
+       statistics = c('#observations' = 'nobs', 
+                      'R squared' = 'r.squared', 
+                      'Adj. R Squared' = 'adj.r.squared', 
+                      'Residual SE' = 'sigma'), 
+       bold_signif = 0.05, 
+       stars = NULL
+) %>% 
+  set_caption('Comparison of models')
+```
+
+Clearly, our model6 has the biggest R^2 and the least squared residuals. Let's see what `ggpairs` can tell us about the correlation between the numerical variables.
+
+```{r ggpairs, echo=TRUE, warning=FALSE, message=FALSE}
+
+bikes_train %>% 
+  select(avg_temp, avg_humidity, avg_pressure, avg_windspeed, bikes_hired) %>% 
+  ggpairs()
+
+```
+
+We see now big correlations between the explanatory variables. In order to add diagnostics, we should include our L-I-N-E plot with `autoplot()` from the `GGFortify` package.
+
+```{r autplot_model6, echo=TRUE}
+
+
+
+autoplot(model6)
+
+```
+Let’s analyse our diagnostics:
+
+`Residuals vs Fitted`: We don’t see a pattern in the data and Y goes around the 0. It seems to be acceptable, since there is not a pattern in the data that is currently unaccounted for.
+
+`Normal Q-Q`: The residuals seem to follow a fairly normal distribution as most of them don’t deviate from the line.
+`Scale-location:` There seems to be a constant variability across the fitted values.
+
+`Residuals vs. Levareage`: Most values go around the zero, that means there are not many values with a high undue influence in our model.
+
+It seems that our `best model` follows all the rules and the results based from this can be acceptable. We will choose model6 as the ideal model to predict our results.
+
+# Predict
+
+We want to predict how many bikes will be hired on regular day with an average temperature of more than 15 degrees in Summer. Let's filter our dataset first and then build predictions.
+
+```{r train_filter, echo=TRUE}
+
+bikes_test_fil <- bikes_test %>%
+  filter(season_name == "Summer",
+         avg_temp>15) %>% drop_na() %>% # We need to drop these results where we don't get insights
+  mutate(row_number = row_number()) %>%
+  select(row_number, id, season_name, day, avg_temp, avg_humidity, avg_pressure, avg_windspeed, rainfall_mm, bikes_hired )
+
+```
+
+
+
+```{r predictions, echo=TRUE}
+# Create dataframe with model prediction
+
+# Use as_tibble to convert to df
+
+model_predictions<-as_tibble(predict(model6, bikes_test_fil, interval='prediction')) %>%
+  
+  # Create row number column
+  mutate(row_number= row_number())
+
+
+# Final result
+final_result<- bikes_test_fil %>%
+  # Join data frames
+  inner_join(model_predictions, by='row_number') %>%
+  # Convert from logarithmic
+  mutate(predicted_bikes=fit,
+         predicted_lwr = lwr,
+         predicted_upr = upr) %>%
+  
+  # Select varaibles of interest
+  select(bikes_hired, predicted_bikes, predicted_lwr, predicted_upr) %>% 
+  # Create "prediction" variable
+  mutate(good_prediction = ifelse(
+    bikes_hired < predicted_lwr | bikes_hired > predicted_upr, FALSE, TRUE))
+
+# Show first 5 results
+kable(head(final_result, 5))
+
+```
+
+The results of the upper 5 predictions are shown in the above table. This shows that 4 out of 5 times, the actual value is within the prediction interval. Let us summarise the result to get an overview of the overall effectiveness.
+
+```{r effectiveness, echo=TRUE, warning=FALSE}
+
+# Plot final result
+final_result %>% 
+  
+  group_by(good_prediction) %>% 
+  summarise(num_good = n()) %>%
+  kable()
+
+```
+
+From the previous results, 43 of the real values were within our prediction interval, whereas 6 were not. These were classified as `bad predictions`.
+
+To finalise our analysis, we can get summary statistics on our values. Our predicted price will be the mean of the `.fitted` values, with a lower prediction interval of the `min` lower and an upper prediction interval of the `max` upper.
+
+```{r final_results_pred, echo=TRUE}
+
+final_result %>%
+  # Summarise
+  summarise(
+    # mean of prediction
+    average_prediction = mean(predicted_bikes),
+    # Lower PI
+    lower_pi = min(predicted_lwr),
+    # Max pi
+    upper_pi = max(predicted_upr)
+  ) %>%
+  select(lower_pi, average_prediction, upper_pi) %>%
+  kable()
+
+```
+
+
+For a Summer day in London with more than 15 degrees in `avg_temp`, the mean of the `bikes_hired` will be around 33000, with a minimum of 12000 and a maximum of 53000.
