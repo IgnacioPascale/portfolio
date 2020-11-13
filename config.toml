@@ -149,9 +149,9 @@ disableHugoGeneratorInject = false
 
 [menu]
   [[menu.main]]
-    identifier = "about"
+    identifier = "aboutme"
     name       = "About"
-    url        = "about/"
+    url        = "aboutme/aboutme"
   [[menu.main]]
     identifier = "posts"
     name       = "Posts"
